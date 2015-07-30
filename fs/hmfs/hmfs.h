@@ -7,6 +7,7 @@
 #include <linux/radix-tree.h>
 #include <linux/pagemap.h>
 
+#include "segment.h"
 #include "hmfs_fs.h"
 
 #ifdef CONFIG_HMFS_CHECK_FS
@@ -126,6 +127,26 @@ struct hmfs_sb_info {
 	struct hmfs_nm_info *nm_info;
 	struct inode *sit_inode;
 	struct inode *ssa_inode;
+
+	/* for cleaning operations */
+	struct mutex gc_mutex;			/* mutex for GC */
+	struct hmfs_gc_kthread	*gc_thread;	/* GC thread */
+	unsigned int cur_victim_sec;		/* current victim section num */
+
+	/* for segment-related operations */
+	struct hmfs_sm_info *sm_info;		/* segment manager */
+
+
+	//page info for garbage collection
+	unsigned long  user_pages_count;	/* # of user pages */
+	unsigned long  total_valid_pages_count;	/* # of valid pages */
+	unsigned long  alloc_valid_pages_count;	/* # of allocated pages */
+	unsigned long  last_valid_pages_count;		/* for recovery */
+
+	unsigned int log_pages_per_seg;	/* log2 pages per segment */
+	unsigned int segs_per_sec;		/* segments per section */
+	unsigned int last_victim[2];		/* last victim segment # */
+
 };
 
 struct hmfs_inode_info {
@@ -184,6 +205,16 @@ enum page_type {
 	OPU,
 };
 
+enum {
+	CURSEG_HOT_DATA	= 0,	/* directory entry blocks */
+	CURSEG_WARM_DATA,	/* data blocks */
+	CURSEG_COLD_DATA,	/* multimedia or GCed data blocks */
+	CURSEG_HOT_NODE,	/* direct node blocks of directory files */
+	CURSEG_WARM_NODE,	/* direct node blocks of normal files */
+	CURSEG_COLD_NODE,	/* indirect node blocks */
+	NO_CHECK_TYPE
+};
+
 extern const struct file_operations hmfs_file_operations;
 extern const struct file_operations hmfs_dir_operations;
 
@@ -240,9 +271,18 @@ static inline struct hmfs_nm_info *NM_I(struct hmfs_sb_info *sbi)
 	return sbi->nm_info;
 }
 
-static inline struct kmem_cache *hmfs_kmem_cache_create(const char *name,
-							size_t size,
-							void (*ctor) (void *))
+static inline struct hmfs_sm_info *SM_I(struct hmfs_sb_info *sbi)
+{
+        return sbi->sm_info;
+}
+
+static inline struct sit_info *SIT_I(struct hmfs_sb_info *sbi)
+{
+        return (struct sit_info *)(SM_I(sbi)->sit_info);
+}
+
+
+static inline struct kmem_cache *hmfs_kmem_cache_create(const char *name,size_t size, void (*ctor) (void *))
 {
 	return kmem_cache_create(name, size, 0, SLAB_RECLAIM_ACCOUNT, ctor);
 }
