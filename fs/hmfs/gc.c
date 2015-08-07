@@ -12,153 +12,8 @@
 #include "segment.h"
 #include "gc.h"
 
-//static struct kmem_cache *winode_slab;
+static struct kmem_cache *winode_slab;
 
-int hmfs_gc(struct hmfs_sb_info *sbi)
-{
-        /**
-        struct list_head ilist;
-        unsigned int segno, i;
-        int gc_type = BG_GC;
-        int nfree = 0;
-        int ret = -1;
-
-        INIT_LIST_HEAD(&ilist);
-gc_more:
-        if (!(sbi->sb->s_flags & MS_ACTIVE))
-                goto stop;
-
-        if (gc_type == BG_GC && has_not_enough_free_secs(sbi, nfree)) {
-                gc_type = FG_GC;
-                write_checkpoint(sbi, false);
-        }
-
-        if (!__get_victim(sbi, &segno, gc_type, NO_CHECK_TYPE))
-                goto stop;
-        ret = 0;
-
-        for (i = 0; i < sbi->segs_per_sec; i++)
-                do_garbage_collect(sbi, segno + i, &ilist, gc_type);
-
-        if (gc_type == FG_GC) {
-                sbi->cur_victim_sec = NULL_SEGNO;
-                nfree++;
-                WARN_ON(get_valid_blocks(sbi, segno, sbi->segs_per_sec));
-        }
-
-        if (has_not_enough_free_secs(sbi, nfree))
-                goto gc_more;
-
-        if (gc_type == FG_GC)
-                write_checkpoint(sbi, false);
-stop:
-        mutex_unlock(&sbi->gc_mutex);
-
-        put_gc_inode(&ilist);
-        return ret;*/
-        return 0;
-}
-
-
-
-static int gc_thread_func(void *data)
-{
-	struct hmfs_sb_info *sbi = data;
-	wait_queue_head_t *wq = &sbi->gc_thread->gc_wait_queue_head;
-	long wait_ms;
-
-	wait_ms = GC_THREAD_MIN_SLEEP_TIME;
-
-	do {
-		if (try_to_freeze())
-			continue;
-		else
-			wait_event_interruptible_timeout(*wq,
-						kthread_should_stop(),
-						msecs_to_jiffies(wait_ms));
-		if (kthread_should_stop())
-			break;
-
-		if (sbi->sb->s_writers.frozen >= SB_FREEZE_WRITE) {
-			wait_ms = GC_THREAD_MAX_SLEEP_TIME;
-			continue;
-		}
-
-		/*
-		 * [GC triggering condition]
-		 * 0. GC is not conducted currently.
-		 * 1. There are enough dirty segments.
-		 * 2. IO subsystem is idle by checking the # of writeback pages.
-		 * 3. IO subsystem is idle by checking the # of requests in
-		 *    bdev's request list.
-		 *
-		 * Note) We have to avoid triggering GCs too much frequently.
-		 * Because it is possible that some segments can be
-		 * invalidated soon after by user update or deletion.
-		 * So, I'd like to wait some time to collect dirty segments.
-		 */
-		if (!mutex_trylock(&sbi->gc_mutex))
-			continue;
-
-		if (!is_idle(sbi)) {
-			wait_ms = increase_sleep_time(wait_ms);
-			mutex_unlock(&sbi->gc_mutex);
-			continue;
-		}
-
-		if (has_enough_invalid_pages(sbi))
-			wait_ms = decrease_sleep_time(wait_ms);
-		else
-			wait_ms = increase_sleep_time(wait_ms);
-#ifdef CONFIG_HMFS_STAT_FS
-		sbi->bg_gc++;
-#endif
-
-		/* if return value is not zero, no victim was selected */
-		//TODO need to complete the hmfs_gc function 
-		if (hmfs_gc(sbi))
-			wait_ms = GC_THREAD_NOGC_SLEEP_TIME;
-	} while (!kthread_should_stop());
-	return 0;
-}
-
-int start_gc_thread(struct hmfs_sb_info *sbi)
-{
-	struct hmfs_gc_kthread *gc_th;
-	//get device info 
-	//dev_t dev = sbi->sb->s_bdev->bd_dev;
-	int err = 0;
-
-	//if (!test_opt(sbi, BG_GC))
-	//	goto out;
-	gc_th = kmalloc(sizeof(struct hmfs_gc_kthread), GFP_KERNEL);
-	if (!gc_th) {
-		err = -ENOMEM;
-		goto out;
-	}
-
-	sbi->gc_thread = gc_th;
-	init_waitqueue_head(&sbi->gc_thread->gc_wait_queue_head);
-	sbi->gc_thread->hmfs_gc_task = kthread_run(gc_thread_func, sbi,"hmfs_gc-%u:%u",1,1);// MAJOR(dev), MINOR(dev));
-	if (IS_ERR(gc_th->hmfs_gc_task)) {
-		err = PTR_ERR(gc_th->hmfs_gc_task);
-		kfree(gc_th);
-		sbi->gc_thread = NULL;
-	}
-
-out:
-	return err;
-}
-
-void stop_gc_thread(struct hmfs_sb_info *sbi)
-{
-	struct hmfs_gc_kthread *gc_th = sbi->gc_thread;
-	if (!gc_th)
-		return;
-	kthread_stop(gc_th->hmfs_gc_task);
-	kfree(gc_th);
-	sbi->gc_thread = NULL;
-}
 
 static int select_gc_type(int gc_type)
 {
@@ -346,11 +201,550 @@ got_it:
 		}
 		*result = (p.min_segno / p.ofs_unit) * p.ofs_unit;
 		//TODO need to add trace.c 
-		//trace_f2fs_get_victim(sbi->sb, type, gc_type, &p,
+		//trace_hmfs_get_victim(sbi->sb, type, gc_type, &p,
 			//	sbi->cur_victim_sec,
 			//	prefree_segments(sbi), free_segments(sbi));
 	}
 	mutex_unlock(&dirty_i->seglist_lock);
 
 	return (p.min_segno == NULL_SEGNO) ? 0 : 1;
+}
+
+static const struct victim_selection default_v_ops = {
+	.get_victim = get_victim_by_default,
+};
+
+static struct inode *find_gc_inode(nid_t ino, struct list_head *ilist)
+{
+	struct inode_entry *ie;
+
+	list_for_each_entry(ie, ilist, list)
+		if (ie->inode->i_ino == ino)
+			return ie->inode;
+	return NULL;
+}
+
+
+static void add_gc_inode(struct inode *inode, struct list_head *ilist)
+{
+	struct inode_entry *new_ie;
+
+	if (inode == find_gc_inode(inode->i_ino, ilist)) {
+		iput(inode);
+		return;
+	}
+repeat:
+	new_ie = kmem_cache_alloc(winode_slab, GFP_NOFS);
+	if (!new_ie) {
+		cond_resched();
+		goto repeat;
+	}
+	new_ie->inode = inode;
+	list_add_tail(&new_ie->list, ilist);
+}
+
+static void put_gc_inode(struct list_head *ilist)
+{
+	struct inode_entry *ie, *next_ie;
+	list_for_each_entry_safe(ie, next_ie, ilist, list) {
+		iput(ie->inode);
+		list_del(&ie->list);
+		kmem_cache_free(winode_slab, ie);
+	}
+}
+
+
+static int check_valid_map(struct hmfs_sb_info *sbi,
+				unsigned int segno, int offset)
+{
+	struct sit_info *sit_i = SIT_I(sbi);
+	struct seg_entry *sentry;
+	int ret;
+
+	mutex_lock(&sit_i->sentry_lock);
+	sentry = get_seg_entry(sbi, segno);
+	ret = test_bit(offset, sentry->cur_valid_map);
+	mutex_unlock(&sit_i->sentry_lock);
+	return ret;
+}
+
+
+/*
+ * This function compares node address got in summary with that in NAT.
+ * On validity, copy that node with cold status, otherwise (invalid node)
+ * ignore that.
+ */
+static void gc_node_segment(struct hmfs_sb_info *sbi,
+		struct hmfs_summary *sum, unsigned int segno, int gc_type)
+{
+	bool initial = true;
+	struct hmfs_summary *entry;
+	int off;
+
+next_step:
+	entry = sum;
+
+	for (off = 0; off < sbi->blocks_per_seg; off++, entry++) {
+		nid_t nid = le32_to_cpu(entry->nid);
+		struct page *node_page;
+
+		/* stop BG_GC if there is not enough free sections. */
+		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0))
+			return;
+
+		if (check_valid_map(sbi, segno, off) == 0)
+			continue;
+
+		if (initial) {
+			//TODO need to add in node.c
+			//ra_node_page(sbi, nid);
+			continue;
+		}
+		//TODO need to add in node.c
+		//node_page = get_node_page(sbi, nid);
+		if (IS_ERR(node_page))
+			continue;
+
+		/* set page dirty and write it */
+		if (gc_type == FG_GC) {
+			//may be unnecessary at all 	
+			//hmfs_submit_bio(sbi, NODE, true);
+			wait_on_page_writeback(node_page);
+			set_page_dirty(node_page);
+		} else {
+			if (!PageWriteback(node_page))
+				set_page_dirty(node_page);
+		}
+		hmfs_put_page(node_page, 1);
+		// need to complete  in hmfs.h and about stat fs
+		//stat_inc_node_blk_count(sbi, 1);
+	}
+
+	if (initial) {
+		initial = false;
+		goto next_step;
+	}
+
+	if (gc_type == FG_GC) {
+		struct writeback_control wbc = {
+			.sync_mode = WB_SYNC_ALL,
+			.nr_to_write = LONG_MAX,
+			.for_reclaim = 0,
+		};
+		//TODO need to complete in node.c
+		//sync_node_pages(sbi, 0, &wbc);
+
+		/*
+		 * In the case of FG_GC, it'd be better to reclaim this victim
+		 * completely.
+		 */
+		if (get_valid_blocks(sbi, segno, 1) != 0)
+			goto next_step;
+	}
+}
+
+/*
+ * Calculate start block index indicating the given node offset.
+ * Be careful, caller should give this node offset only indicating direct node
+ * blocks. If any node offsets, which point the other types of node blocks such
+ * as indirect or double indirect node blocks, are given, it must be a caller's
+ * bug.
+ */
+block_t start_bidx_of_node(unsigned int node_ofs)
+{
+	unsigned int indirect_blks = 2 * NIDS_PER_BLOCK + 4;
+	unsigned int bidx;
+
+	if (node_ofs == 0)
+		return 0;
+
+	if (node_ofs <= 2) {
+		bidx = node_ofs - 1;
+	} else if (node_ofs <= indirect_blks) {
+		int dec = (node_ofs - 4) / (NIDS_PER_BLOCK + 1);
+		bidx = node_ofs - 2 - dec;
+	} else {
+		int dec = (node_ofs - indirect_blks - 3) / (NIDS_PER_BLOCK + 1);
+		bidx = node_ofs - 5 - dec;
+	}
+	return bidx * ADDRS_PER_BLOCK + ADDRS_PER_INODE;
+}
+
+
+static int check_dnode(struct hmfs_sb_info *sbi, struct hmfs_summary *sum,
+		struct node_info *dni, block_t blkaddr, unsigned int *nofs)
+{
+	struct page *node_page;
+	nid_t nid;
+	unsigned int ofs_in_node;
+	block_t source_blkaddr;
+
+	nid = le32_to_cpu(sum->nid);
+	ofs_in_node = le16_to_cpu(sum->ofs_in_node);
+	//TODO need to be added in node.c
+	//node_page = get_node_page(sbi, nid);
+	if (IS_ERR(node_page))
+		return 0;
+
+	get_node_info(sbi, nid, dni);
+
+	if (sum->version != dni->version) {
+		hmfs_put_page(node_page, 1);
+		return 0;
+	}
+	//TODO need to be added in node.c
+	//*nofs = ofs_of_node(node_page);
+	source_blkaddr = datablock_addr(node_page, ofs_in_node);
+	hmfs_put_page(node_page, 1);
+
+	if (source_blkaddr != blkaddr)
+		return 0;
+	return 1;
+}
+
+
+static void move_data_page(struct inode *inode, struct page *page, int gc_type)
+{
+	if (gc_type == BG_GC) {
+		if (PageWriteback(page))
+			goto out;
+		set_page_dirty(page);
+		//TODO need to be added in node.h
+		//set_cold_data(page);
+	} else {
+		struct hmfs_sb_info *sbi = HMFS_SB(inode->i_sb);
+
+		if (PageWriteback(page)) {
+			//TODO need to be added in segment.c
+			//hmfs_submit_bio(sbi, DATA, true);
+			wait_on_page_writeback(page);
+		}
+
+		if (clear_page_dirty_for_io(page) &&
+			S_ISDIR(inode->i_mode)) {
+			dec_page_count(sbi, HMFS_DIRTY_DENTS);
+			inode_dec_dirty_dents(inode);
+		}
+		//TODO need to be added in node.h
+		//set_cold_data(page);
+		//TODO need to be add in data.c
+		//do_write_data_page(page);
+		//clear_cold_data(page);
+	}
+out:
+	hmfs_put_page(page, 1);
+}
+
+/*
+ * This function tries to get parent node of victim data block, and identifies
+ * data block validity. If the block is valid, copy that with cold status and
+ * modify parent node.
+ * If the parent node is not valid or the data block address is different,
+ * the victim data block is ignored.
+ */
+static void gc_data_segment(struct hmfs_sb_info *sbi, struct hmfs_summary *sum,
+		struct list_head *ilist, unsigned int segno, int gc_type)
+{
+	struct super_block *sb = sbi->sb;
+	struct hmfs_summary *entry;
+	block_t start_addr;
+	int off;
+	int phase = 0;
+
+	start_addr = START_BLOCK(sbi, segno);
+
+next_step:
+	entry = sum;
+
+	for (off = 0; off < sbi->blocks_per_seg; off++, entry++) {
+		struct page *data_page;
+		struct inode *inode;
+		struct node_info dni; /* dnode info for the data */
+		unsigned int ofs_in_node, nofs;
+		block_t start_bidx;
+
+		/* stop BG_GC if there is not enough free sections. */
+		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0))
+			return;
+
+		if (check_valid_map(sbi, segno, off) == 0)
+			continue;
+
+		if (phase == 0) {
+			//TODO need to be added in node.c
+			//ra_node_page(sbi, le32_to_cpu(entry->nid));
+			continue;
+		}
+
+		/* Get an inode by ino with checking validity */
+		if (check_dnode(sbi, entry, &dni, start_addr + off, &nofs) == 0)
+			continue;
+
+		if (phase == 1) {
+			//TODO need to be added in node.c
+			//ra_node_page(sbi, dni.ino);
+			continue;
+		}
+
+		start_bidx = start_bidx_of_node(nofs);
+		ofs_in_node = le16_to_cpu(entry->ofs_in_node);
+
+		if (phase == 2) {
+			inode = hmfs_iget(sb, dni.ino);
+			if (IS_ERR(inode))
+				continue;
+			//TODO need to be added in data.c
+			//data_page = find_data_page(inode,
+			//		start_bidx + ofs_in_node, false);
+			if (IS_ERR(data_page))
+				goto next_iput;
+
+			hmfs_put_page(data_page, 0);
+			add_gc_inode(inode, ilist);
+		} else {
+			inode = find_gc_inode(dni.ino, ilist);
+			if (inode) {
+				//TODO need to be added in data.c
+				//data_page = get_lock_data_page(inode,
+				//		start_bidx + ofs_in_node);
+				if (IS_ERR(data_page))
+					continue;
+				//TODO need to be added in data.c
+				//move_data_page(inode, data_page, gc_type);
+				stat_inc_data_blk_count(sbi, 1);
+			}
+		}
+		continue;
+next_iput:
+		iput(inode);
+	}
+
+	if (++phase < 4)
+		goto next_step;
+
+	if (gc_type == FG_GC) {
+		//TODO need to be added in segment.c
+		//hmfs_submit_bio(sbi, DATA, true);
+
+		/*
+		 * In the case of FG_GC, it'd be better to reclaim this victim
+		 * completely.
+		 */
+		if (get_valid_blocks(sbi, segno, 1) != 0) {
+			phase = 2;
+			goto next_step;
+		}
+	}
+}
+
+static int __get_victim(struct hmfs_sb_info *sbi, unsigned int *victim,
+						int gc_type, int type)
+{
+	struct sit_info *sit_i = SIT_I(sbi);
+	int ret;
+	mutex_lock(&sit_i->sentry_lock);
+	ret = DIRTY_I(sbi)->v_ops->get_victim(sbi, victim, gc_type, type, LFS);
+	mutex_unlock(&sit_i->sentry_lock);
+	return ret;
+}
+
+
+//ilist is the list of parent inode.
+static void do_garbage_collect(struct hmfs_sb_info *sbi, unsigned int segno,
+				struct list_head *ilist, int gc_type)
+{
+	struct page *sum_page;
+	struct hmfs_summary_block *sum;
+	//struct blk_plug plug;
+
+	/* read segment summary of victim */
+	//sum_page = get_sum_page(sbi, segno);
+	if (IS_ERR(sum_page))
+		return;
+	//FIXME may be unnecessary any more.
+	//blk_start_plug(&plug);
+
+	sum = page_address(sum_page);
+
+	switch (GET_SUM_TYPE((&sum->footer))) {
+	case SUM_TYPE_NODE:
+		gc_node_segment(sbi, sum->entries, segno, gc_type);
+		break;
+	case SUM_TYPE_DATA:
+		gc_data_segment(sbi, sum->entries, ilist, segno, gc_type);
+		break;
+	}
+	//TODO may be unnecessary any more.
+	//blk_finish_plug(&plug);
+
+	stat_inc_seg_count(sbi, GET_SUM_TYPE((&sum->footer)));
+	stat_inc_call_count(sbi->stat_info);
+
+	hmfs_put_page(sum_page, 1);
+}
+
+int hmfs_gc(struct hmfs_sb_info *sbi)
+{
+	struct list_head ilist;
+	unsigned int segno, i;
+	int gc_type = BG_GC;
+	int nfree = 0;
+	int ret = -1;
+
+	INIT_LIST_HEAD(&ilist);
+gc_more:
+	if (!(sbi->sb->s_flags & MS_ACTIVE))
+		goto stop;
+
+	if (gc_type == BG_GC && has_not_enough_free_secs(sbi, nfree)) {
+		gc_type = FG_GC;
+		//TODO need to be added in checkpoint.c
+		//write_checkpoint(sbi, false);
+	}
+
+	if (!__get_victim(sbi, &segno, gc_type, NO_CHECK_TYPE))
+		goto stop;
+	ret = 0;
+
+	for (i = 0; i < sbi->segs_per_sec; i++)
+		do_garbage_collect(sbi, segno + i, &ilist, gc_type);
+
+	if (gc_type == FG_GC) {
+		sbi->cur_victim_sec = NULL_SEGNO;
+		nfree++;
+		WARN_ON(get_valid_blocks(sbi, segno, sbi->segs_per_sec));
+	}
+
+	if (has_not_enough_free_secs(sbi, nfree))
+		goto gc_more;
+
+	if (gc_type == FG_GC)
+		//TODO need to be added in checkpoint.c
+		//write_checkpoint(sbi, false);
+stop:
+	mutex_unlock(&sbi->gc_mutex);
+
+	put_gc_inode(&ilist);
+	return ret;
+}
+
+
+static int gc_thread_func(void *data)
+{
+	struct hmfs_sb_info *sbi = data;
+	wait_queue_head_t *wq = &sbi->gc_thread->gc_wait_queue_head;
+	long wait_ms;
+
+	wait_ms = GC_THREAD_MIN_SLEEP_TIME;
+
+	do {
+		if (try_to_freeze())
+			continue;
+		else
+			wait_event_interruptible_timeout(*wq,
+						kthread_should_stop(),
+						msecs_to_jiffies(wait_ms));
+		if (kthread_should_stop())
+			break;
+
+		if (sbi->sb->s_writers.frozen >= SB_FREEZE_WRITE) {
+			wait_ms = GC_THREAD_MAX_SLEEP_TIME;
+			continue;
+		}
+
+		/*
+		 * [GC triggering condition]
+		 * 0. GC is not conducted currently.
+		 * 1. There are enough dirty segments.
+		 * 2. IO subsystem is idle by checking the # of writeback pages.
+		 * 3. IO subsystem is idle by checking the # of requests in
+		 *    bdev's request list.
+		 *
+		 * Note) We have to avoid triggering GCs too much frequently.
+		 * Because it is possible that some segments can be
+		 * invalidated soon after by user update or deletion.
+		 * So, I'd like to wait some time to collect dirty segments.
+		 */
+		if (!mutex_trylock(&sbi->gc_mutex))
+			continue;
+
+		if (!is_idle(sbi)) {
+			wait_ms = increase_sleep_time(wait_ms);
+			mutex_unlock(&sbi->gc_mutex);
+			continue;
+		}
+
+		if (has_enough_invalid_pages(sbi))
+			wait_ms = decrease_sleep_time(wait_ms);
+		else
+			wait_ms = increase_sleep_time(wait_ms);
+#ifdef CONFIG_HMFS_STAT_FS
+		sbi->bg_gc++;
+#endif
+
+		/* if return value is not zero, no victim was selected */
+		//TODO need to complete the hmfs_gc function 
+		if (hmfs_gc(sbi))
+			wait_ms = GC_THREAD_NOGC_SLEEP_TIME;
+	} while (!kthread_should_stop());
+	return 0;
+}
+
+
+
+int start_gc_thread(struct hmfs_sb_info *sbi)
+{
+	struct hmfs_gc_kthread *gc_th;
+	//get device info 
+	//dev_t dev = sbi->sb->s_bdev->bd_dev;
+	int err = 0;
+
+	//if (!test_opt(sbi, BG_GC))
+	//	goto out;
+	gc_th = kmalloc(sizeof(struct hmfs_gc_kthread), GFP_KERNEL);
+	if (!gc_th) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	sbi->gc_thread = gc_th;
+	init_waitqueue_head(&sbi->gc_thread->gc_wait_queue_head);
+	sbi->gc_thread->hmfs_gc_task = kthread_run(gc_thread_func, sbi,"hmfs_gc-%u:%u",1,1);// MAJOR(dev), MINOR(dev));
+	if (IS_ERR(gc_th->hmfs_gc_task)) {
+		err = PTR_ERR(gc_th->hmfs_gc_task);
+		kfree(gc_th);
+		sbi->gc_thread = NULL;
+	}
+
+out:
+	return err;
+}
+
+void stop_gc_thread(struct hmfs_sb_info *sbi)
+{
+	struct hmfs_gc_kthread *gc_th = sbi->gc_thread;
+	if (!gc_th)
+		return;
+	kthread_stop(gc_th->hmfs_gc_task);
+	kfree(gc_th);
+	sbi->gc_thread = NULL;
+}
+
+void build_gc_manager(struct hmfs_sb_info *sbi)
+{
+	DIRTY_I(sbi)->v_ops = &default_v_ops;
+}
+
+int __init create_gc_caches(void)
+{
+	winode_slab = hmfs_kmem_cache_create("hmfs_gc_inodes",
+			sizeof(struct inode_entry), NULL);
+	if (!winode_slab)
+		return -ENOMEM;
+	return 0;
+}
+
+void destroy_gc_caches(void)
+{
+	kmem_cache_destroy(winode_slab);
 }

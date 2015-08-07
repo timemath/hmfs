@@ -2,7 +2,12 @@
 #define _LINUX_SEGMENT_H
 
 #include "hmfs.h"
-typedef u64 block_t;		//bits per NVM page address 
+//typedef u64 block_t;		//bits per NVM page address 
+
+
+/* L: Logical segment # in volume, R: Relative segment # in main area */
+#define GET_L2R_SEGNO(free_i, segno)	(segno - free_i->start_segno)
+#define GET_R2L_SEGNO(free_i, segno)	(segno + free_i->start_segno)
 
 #define hmfs_bitmap_size(nr)			\
 	(BITS_TO_LONGS(nr) * sizeof(unsigned long))
@@ -17,8 +22,20 @@ typedef u64 block_t;		//bits per NVM page address
 #define GET_SECNO(sbi, segno)					\
 	((segno) / sbi->segs_per_sec)
 
+#define START_BLOCK(sbi, segno)						\
+	(SM_I(sbi)->seg0_blkaddr +					\
+	 (GET_R2L_SEGNO(FREE_I(sbi), segno) << sbi->log_blocks_per_seg))
 
-/* Notice: The order of dirty type is same with CURSEG_XXX in hmfs.h */
+#define GET_SUM_BLOCK(sbi, segno)				\
+	((sbi->sm_info->ssa_blkaddr) + segno)
+
+#define GET_SUM_BLOCK(sbi, segno)				\
+	((sbi->sm_info->ssa_blkaddr) + segno)
+
+#define GET_SUM_TYPE(footer) ((footer)->entry_type)
+#define SET_SUM_TYPE(footer, type) ((footer)->entry_type = type)
+
+
 enum dirty_type {
 	DIRTY_HOT_DATA,		/* dirty segments assigned as hot data logs */
 	DIRTY_WARM_DATA,	/* dirty segments assigned as warm data logs */
@@ -71,10 +88,18 @@ struct sit_info {
 
 struct free_segmap_info {
 	unsigned int start_segno;	/* start segment number logically */
+	unsigned int free_sections;	/* # of free sections */
 	unsigned int free_segments;	/* # of free segments */
 	rwlock_t segmap_lock;	/* free segmap lock */
 	unsigned long *free_segmap;	/* free segment bitmap */
 };
+
+/* victim selection function for cleaning and SSR */
+struct victim_selection {
+	int (*get_victim)(struct hmfs_sb_info *, unsigned int *,
+							int, int, char);
+};
+
 /* for active log information */
 struct curseg_info {
 	struct mutex curseg_mutex;	/* lock for consistency */
@@ -120,10 +145,10 @@ static inline struct sit_info *SIT_I(struct hmfs_sb_info *sbi)
         return (struct sit_info *)(SM_I(sbi)->sit_info);
 }
 
-static inline unsigned int prefree_segments(struct hmfs_sb_info *sbi)
-{
-        return DIRTY_I(sbi)->nr_dirty[PRE];
-}
+//static inline unsigned int prefree_segments(struct hmfs_sb_info *sbi)
+//{
+//        return DIRTY_I(sbi)->nr_dirty[PRE];
+//}
 
 
 static inline struct seg_entry *get_seg_entry(struct hmfs_sb_info *sbi,
@@ -188,6 +213,41 @@ static inline unsigned int get_valid_blocks(struct hmfs_sb_info *sbi,
 		return get_sec_entry(sbi, segno)->valid_blocks;
 	else
 		return get_seg_entry(sbi, segno)->valid_blocks;
+}
+
+static inline unsigned int free_sections(struct hmfs_sb_info *sbi)
+{
+	struct free_segmap_info *free_i = FREE_I(sbi);
+	unsigned int free_secs;
+
+	read_lock(&free_i->segmap_lock);
+	free_secs = free_i->free_sections;
+	read_unlock(&free_i->segmap_lock);
+
+	return free_secs;
+}
+
+static inline int reserved_segments(struct hmfs_sb_info *sbi)
+{
+	return SM_I(sbi)->reserved_segments;
+}
+
+
+static inline int reserved_sections(struct hmfs_sb_info *sbi)
+{
+	return ((unsigned int) reserved_segments(sbi)) / sbi->segs_per_sec;
+}
+
+static inline bool has_not_enough_free_secs(struct hmfs_sb_info *sbi, int freed)
+{
+	int node_secs = get_blocktype_secs(sbi, HMFS_DIRTY_NODES);
+	int dent_secs = get_blocktype_secs(sbi, HMFS_DIRTY_DENTS);
+
+	if (sbi->por_doing)
+		return false;
+
+	return ((free_sections(sbi) + freed) <= (node_secs + 2 * dent_secs +
+						reserved_sections(sbi)));
 }
 
 #endif

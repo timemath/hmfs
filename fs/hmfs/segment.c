@@ -283,3 +283,12 @@ int build_segment_manager(struct hmfs_sb_info *sbi)
 	//init_min_max_mtime(sbi);
 	return 0;
 }
+
+/*
+ * Caller should put this summary page
+ */
+/*struct page *get_sum_page(struct hmfs_sb_info *sbi, unsigned int segno)
+{
+	return get_meta_page(sbi, GET_SUM_BLOCK(sbi, segno));
+}
+*/

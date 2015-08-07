@@ -10,6 +10,9 @@
 
 #include "hmfs_fs.h"
 
+typedef u64 block_t;            //bits per NVM page address 
+
+
 #ifdef CONFIG_HMFS_CHECK_FS
 #define hmfs_bug_on(sbi, condition)	BUG_ON(condition)
 #define hmfs_down_write(x, y)	down_write_nest_lock(x, y)
@@ -28,6 +31,25 @@
 
 #define HMFS_DEF_FILE_MODE	0664
 
+
+ 
+/*
+ * For superblock
+ */
+ /*
+ * COUNT_TYPE for monitoring
+ *
+ * hmfs monitors the number of several block types such as on-writeback,
+ * dirty dentry blocks, dirty node blocks, and dirty meta blocks.
+ */
+enum count_type {
+        HMFS_WRITEBACK,
+        HMFS_DIRTY_DENTS,
+        HMFS_DIRTY_NODES,
+        HMFS_DIRTY_META,
+        NR_COUNT_TYPE,
+};
+ 
 /*
  * For INODE and NODE manager
  */
@@ -124,7 +146,10 @@ struct hmfs_sb_info {
 	unsigned int blocks_per_seg;		/* blocks per segment */
 	unsigned int segs_per_sec;		/* segments per section */
 	unsigned int secs_per_zone;		/* sections per zone */
-
+	
+	/* for checkpoint */
+	int por_doing;				/* recovery is doing or not */
+	atomic_t nr_pages[NR_COUNT_TYPE];	/* # of pages, see count_type */
 };
 
 struct hmfs_inode_info {
@@ -134,6 +159,8 @@ struct hmfs_inode_info {
 	unsigned char i_dir_level;	/* use for dentry level for large dir */
 	hmfs_hash_t chash;	/* hash value of given file name */
 	unsigned int i_current_depth;	/* use only in directory structure */
+	atomic_t dirty_dents;		/* # of dirty dentry pages */
+	
 	unsigned int clevel;	/* maximum level of given file name */
 	/* Use below internally in hmfs */
 	unsigned long flags;	/* use to pass per-file flags */
@@ -197,6 +224,8 @@ enum READ_DNODE_TYPE {
 	ALLOC_NODE,
 	LOOKUP_NODE,
 };
+
+
 /*
  * this structure is used as one of function parameters.
  * all the information are dedicated to a given direct node block determined
@@ -210,6 +239,17 @@ struct dnode_of_data {
 	unsigned int ofs_in_node;	/* data offset in the node page */
 	int level;		/* depth of data block */
 };
+
+enum {
+	CURSEG_HOT_DATA	= 0,	/* directory entry blocks */
+	CURSEG_WARM_DATA,	/* data blocks */
+	CURSEG_COLD_DATA,	/* multimedia or GCed data blocks */
+	CURSEG_HOT_NODE,	/* direct node blocks of directory files */
+	CURSEG_WARM_NODE,	/* direct node blocks of normal files */
+	CURSEG_COLD_NODE,	/* indirect node blocks */
+	NO_CHECK_TYPE
+};
+
 
 extern const struct file_operations hmfs_file_operations;
 extern const struct file_operations hmfs_dir_operations;
@@ -226,6 +266,11 @@ extern const struct address_space_operations hmfs_ssa_aops;
 /*
  * Inline functions
  */
+static inline struct hmfs_super_block *HMFS_RAW_SUPER(struct hmfs_sb_info *sbi)
+{
+        return (struct hmfs_super_block *)(sbi->virt_addr);
+} 
+
 static inline struct hmfs_inode_info *HMFS_I(struct inode *inode)
 {
 	return container_of(inode, struct hmfs_inode_info, vfs_inode);
@@ -274,6 +319,20 @@ static inline nid_t START_NID(nid_t nid)
 	return nid;
 }
 
+static inline int get_pages(struct hmfs_sb_info *sbi, int count_type)
+{
+	return atomic_read(&sbi->nr_pages[count_type]);
+}
+
+static inline int get_blocktype_secs(struct hmfs_sb_info *sbi, int block_type)
+{
+	unsigned int pages_per_sec = sbi->segs_per_sec *
+					(1 << sbi->log_blocks_per_seg);
+	return ((get_pages(sbi, block_type) + pages_per_sec - 1)
+			>> sbi->log_blocks_per_seg) / sbi->segs_per_sec;
+}
+
+
 static inline struct hmfs_sb_info *HMFS_I_SB(struct inode *inode)
 {
 	return HMFS_SB(inode->i_sb);
@@ -311,6 +370,22 @@ static inline struct hmfs_sb_info *HMFS_P_SB(struct page *page)
 	return HMFS_M_SB(page->mapping);
 }
 
+static inline void inode_inc_dirty_dents(struct inode *inode)
+{
+	atomic_inc(&HMFS_I(inode)->dirty_dents);
+}
+
+static inline void dec_page_count(struct hmfs_sb_info *sbi, int count_type)
+{
+	atomic_dec(&sbi->nr_pages[count_type]);
+}
+
+static inline void inode_dec_dirty_dents(struct inode *inode)
+{
+	atomic_dec(&HMFS_I(inode)->dirty_dents);
+}
+
+
 static inline void set_inode_flag(struct hmfs_inode_info *fi, int flag)
 {
 	if (!test_bit(flag, &fi->flags))
@@ -329,6 +404,34 @@ static inline unsigned long cal_page_addr(unsigned long segno,
 	return (segno << HMFS_SEGMENT_SIZE_BITS) +
 	    (blkoff << HMFS_PAGE_SIZE_BITS);
 }
+
+#define RAW_IS_INODE(p)	((p)->footer.nid == (p)->footer.ino)
+#define stat_inc_data_blk_count(si, blks)
+#define stat_inc_call_count(si)
+#define stat_inc_seg_count(si, type)
+
+
+static inline bool IS_INODE(struct page *page)
+{
+	struct hmfs_node *p = (struct hmfs_node *)page_address(page);
+	return RAW_IS_INODE(p);
+}
+
+static inline __le32 *blkaddr_in_node(struct hmfs_node *node)
+{
+	return RAW_IS_INODE(node) ? node->i.i_addr : node->dn.addr;
+}
+
+static inline block_t datablock_addr(struct page *node_page,
+		unsigned int offset)
+{
+	struct hmfs_node *raw_node;
+	__le32 *addr_array;
+	raw_node = (struct hmfs_node *)page_address(node_page);
+	addr_array = blkaddr_in_node(raw_node);
+	return le32_to_cpu(addr_array[offset]);
+}
+
 
 static inline loff_t hmfs_max_size(void)
 {
