@@ -9,7 +9,7 @@
 
 #include "hmfs.h"
 #include "node.h"
-//#include "segment.h"
+#include "segment.h"
 #include "gc.h"
 
 //static struct kmem_cache *winode_slab;
@@ -190,9 +190,9 @@ static unsigned int get_max_cost(struct hmfs_sb_info *sbi,
 {
 	/* SSR allocates in a segment unit */
 	if (p->alloc_mode == SSR)
-		return 1 << sbi->log_pages_per_seg;
+		return 1 << sbi->log_blocks_per_seg;
 	if (p->gc_mode == GC_GREEDY)
-		return (1 << sbi->log_pages_per_seg) * p->ofs_unit;
+		return (1 << sbi->log_blocks_per_seg) * p->ofs_unit;
 	else if (p->gc_mode == GC_CB)
 		return UINT_MAX;
 	else /* No other gc_mode */
@@ -253,4 +253,104 @@ static unsigned int get_cb_cost(struct hmfs_sb_info *sbi, unsigned int segno)
 				sit_i->max_mtime - sit_i->min_mtime);
 
 	return UINT_MAX - ((100 * (100 - u) * age) / (100 + u));
+}
+
+static unsigned int get_gc_cost(struct hmfs_sb_info *sbi, unsigned int segno,
+					struct victim_sel_policy *p)
+{
+	if (p->alloc_mode == SSR)
+		return get_seg_entry(sbi, segno)->ckpt_valid_blocks;
+
+	/* alloc_mode == LFS */
+	if (p->gc_mode == GC_GREEDY)
+		return get_valid_blocks(sbi, segno, sbi->segs_per_sec);
+	else
+		return get_cb_cost(sbi, segno);
+}
+
+/*
+ * This function is called from two paths.
+ * One is garbage collection and the other is SSR segment selection.
+ * When it is called during GC, it just gets a victim segment
+ * and it does not remove it from dirty seglist.
+ * When it is called from SSR segment selection, it finds a segment
+ * which has minimum valid blocks and removes it from dirty seglist.
+ */
+static int get_victim_by_default(struct hmfs_sb_info *sbi,
+		unsigned int *result, int gc_type, int type, char alloc_mode)
+{
+	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
+	struct victim_sel_policy p;
+	unsigned int secno, max_cost;
+	int nsearched = 0;
+
+	p.alloc_mode = alloc_mode;
+	select_policy(sbi, gc_type, type, &p);
+
+	p.min_segno = NULL_SEGNO;
+	p.min_cost = max_cost = get_max_cost(sbi, &p);
+
+	mutex_lock(&dirty_i->seglist_lock);
+
+	if (p.alloc_mode == LFS && gc_type == FG_GC) {
+		p.min_segno = check_bg_victims(sbi);
+		if (p.min_segno != NULL_SEGNO)
+			goto got_it;
+	}
+
+	while (1) {
+		unsigned long cost;
+		unsigned int segno;
+
+		segno = find_next_bit(p.dirty_segmap,
+						TOTAL_SEGS(sbi), p.offset);
+		if (segno >= TOTAL_SEGS(sbi)) {
+			if (sbi->last_victim[p.gc_mode]) {
+				sbi->last_victim[p.gc_mode] = 0;
+				p.offset = 0;
+				continue;
+			}
+			break;
+		}
+		p.offset = ((segno / p.ofs_unit) * p.ofs_unit) + p.ofs_unit;
+		secno = GET_SECNO(sbi, segno);
+
+		if (sec_usage_check(sbi, secno))
+			continue;
+		if (gc_type == BG_GC && test_bit(secno, dirty_i->victim_secmap))
+			continue;
+
+		cost = get_gc_cost(sbi, segno, &p);
+
+		if (p.min_cost > cost) {
+			p.min_segno = segno;
+			p.min_cost = cost;
+		}
+
+		if (cost == max_cost)
+			continue;
+
+		if (nsearched++ >= MAX_VICTIM_SEARCH) {
+			sbi->last_victim[p.gc_mode] = segno;
+			break;
+		}
+	}
+	if (p.min_segno != NULL_SEGNO) {
+got_it:
+		if (p.alloc_mode == LFS) {
+			secno = GET_SECNO(sbi, p.min_segno);
+			if (gc_type == FG_GC)
+				sbi->cur_victim_sec = secno;
+			else
+				set_bit(secno, dirty_i->victim_secmap);
+		}
+		*result = (p.min_segno / p.ofs_unit) * p.ofs_unit;
+		//TODO need to add trace.c 
+		//trace_f2fs_get_victim(sbi->sb, type, gc_type, &p,
+			//	sbi->cur_victim_sec,
+			//	prefree_segments(sbi), free_segments(sbi));
+	}
+	mutex_unlock(&dirty_i->seglist_lock);
+
+	return (p.min_segno == NULL_SEGNO) ? 0 : 1;
 }

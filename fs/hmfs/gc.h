@@ -57,18 +57,6 @@ enum {
 	FG_GC
 };
 
-/* Notice: The order of dirty type is same with CURSEG_XXX in hmfs.h */
-enum dirty_type {
-	DIRTY_HOT_DATA,		/* dirty segments assigned as hot data logs */
-	DIRTY_WARM_DATA,	/* dirty segments assigned as warm data logs */
-	DIRTY_COLD_DATA,	/* dirty segments assigned as cold data logs */
-	DIRTY_HOT_NODE,		/* dirty segments assigned as hot node logs */
-	DIRTY_WARM_NODE,	/* dirty segments assigned as warm node logs */
-	DIRTY_COLD_NODE,	/* dirty segments assigned as cold node logs */
-	DIRTY,			/* to count # of dirty segments */
-	PRE,			/* to count # of entirely obsolete segments */
-	NR_DIRTY_TYPE
-};
 
 /**
 #define IS_CURSEC(sbi, secno)						\
@@ -149,13 +137,14 @@ static inline unsigned long free_user_pages(struct hmfs_sb_info *sbi)
 
 static inline unsigned long limit_invalid_user_pages(struct hmfs_sb_info *sbi)
 {
-	return (long)(sbi->user_pages_count * LIMIT_INVALID_BLOCK) / 100;
+	//TODO need to check the variable page_count
+	return (long)(sbi->page_count * LIMIT_INVALID_BLOCK) / 100;
 }
 
 static inline unsigned long limit_free_user_pages(struct hmfs_sb_info *sbi)
 {
-
-	unsigned long reclaimable_user_pages = sbi->user_pages_count;
+	//user_pages_count is the original name , now is page_count in hmfs.
+	unsigned long reclaimable_user_pages = sbi->page_count;
  		//TODO need to be completed in segment.h
 		//-written_pages_count(sbi);
 	return (long)(reclaimable_user_pages * LIMIT_FREE_BLOCK) / 100;
@@ -186,7 +175,7 @@ static inline long decrease_sleep_time(long wait)
 
 static inline bool has_enough_invalid_pages(struct hmfs_sb_info *sbi)
 {
-	unsigned long invalid_user_pages = sbi->user_pages_count;
+	unsigned long invalid_user_pages = sbi->page_count;
 				//TODO need to complete in segment.h	
 				// -written_pages_count(sbi);
 	/*
