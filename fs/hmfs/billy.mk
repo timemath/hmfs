@@ -1,3 +1,8 @@
+PRINTPATH := /home/billy/printtty
+KBUILD_EXTRA_SYMBOLS := $(PRINTPATH)/Module.symvers
+
+hmfs_1G_2G:
+	sudo mount -t hmfs -o physaddr=0x80000000,uid=1000,gid=1000,init=1G none ~/hmfsMount/
 hmfs_300M_2G:
 	sudo mount -t hmfs -o physaddr=0x80000000,uid=1000,gid=1000,init=140M none ~/hmfsMount/
 hmfs_300M_2G_remount:
