@@ -471,7 +471,7 @@ static size_t print_sit_i(struct hmfs_sb_info *sbi)
 {
 	size_t len = 0;
 	struct sit_info *sit_i = SIT_I(sbi);
-
+/*
 	len += hmfs_vprint(1, "sit_blocks: %u\n", sit_i->sit_blocks);
 	len +=
 	    hmfs_vprint(1, "written_valid_blocks: %u\n",
@@ -484,6 +484,7 @@ static size_t print_sit_i(struct hmfs_sb_info *sbi)
 	len += hmfs_vprint(1, "mounted_time: %llu\n", sit_i->mounted_time);
 	len += hmfs_vprint(1, "min_mtime: %llu\n", sit_i->min_mtime);
 	len += hmfs_vprint(1, "max_mtime: %llu\n", sit_i->max_mtime);
+	*/
 
 	return len;
 }
