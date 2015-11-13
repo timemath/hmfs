@@ -9,21 +9,28 @@
 #include "segment.h"
 
 #define MAX_CMD_LEN	((MAX_ARG_LEN + 2) * MAX_ARG_NUM)
-#define MAX_ARG_LEN (8)
+#define MAX_ARG_LEN (12)
 #define MAX_ARG_NUM (5)
 
-#define USAGE		"============= GENERAL USAGE ============\n" \
+#define USAGE		"============= GENERAL USAGE ============\n"\
 			" type the these cmd to get detail usage.\n"\
-			"    cp    show checkpoint info.\n" \
-			"    ssa   show SSA info.\n" \
-			"    sit   show SIT info.\n" \
-			"    nat   show nat info.\n" \
-			"    data  show nat info.\n" \
-			"    help  show this usage.\n" \
+			"    cp    --   show checkpoint info.\n" \
+			"    ssa   --   show SSA info.\n" \
+			"    sit   --   show SIT info.\n" \
+			"    nat   --   show nat info.\n" \
+			"    data  --   show nat info.\n" \
+			"    help  --   show this usage.\n" \
 			"=========================================\n"
 
 #define USAGE_CP	"cp"
-#define USAGE_SSA	"ssa"
+
+#define USAGE_SSA	"=============== SSA USAGE ==============\n"\
+      			"`ssa <idx1> <idx2>`\n"\
+			"  -- block summary in blk[idx1, idx2]\n"\
+      			"`ssa <segno>`\n"\
+			"  -- block summary in  segment[segno]\n"\
+			"=========================================\n"
+
 #define USAGE_SIT	"=============== SIT USAGE ==============\n" \
 			" TODO\n"
 #define USAGE_NAT "nat"
@@ -188,7 +195,7 @@ int hmfs_build_stats(struct hmfs_sb_info *sbi)
 	list_add_tail(&si->stat_list, &hmfs_stat_list);
 	mutex_unlock(&hmfs_stat_mutex);
 
-	return hmfs_build_info(sbi, (1 << 12));
+	return hmfs_build_info(sbi, (1 << 20));//TODO
 }
 
 void hmfs_destroy_stats(struct hmfs_sb_info *sbi)
@@ -384,81 +391,79 @@ static int hmfs_print_cp(int args, char argv[][MAX_ARG_LEN + 1])
 }
 
 /*
- *dump a segment summary entry to file buffer.
- *@blkidx: the index of summary block.
- *@offset: the offset of entry in that summary block.
- *note: as the mapping of segment summary and main area.
- *the blkidx can receives segno, and offset receives block offset
+ * print_ssa_one -- dump a segment summary entry to file buffer.
+ *	@blk_idx : the index of summary block.
  */
-static size_t print_ssa_one(struct hmfs_sb_info *sbi, size_t blkidx,
-			    size_t offset)
+static size_t print_ssa_one(struct hmfs_sb_info *sbi, block_t blk_addr)
 {
 	size_t len = 0;
-	struct hmfs_summary_block *sum_blk = get_summary_block(sbi, blkidx);
 	struct hmfs_summary *sum_entry;
-	if (offset >= SUM_ENTRY_PER_BLOCK)
-		return 0;
-	sum_entry = &sum_blk->entries[offset];	//not safe
 
-	len += hmfs_vprint(1, "nid: %u\n", le32_to_cpu(sum_entry->nid));
-	len +=
-	    hmfs_vprint(1, "dead_version: %u\n",
-			le32_to_cpu(sum_entry->dead_version));
-	len +=
-	    hmfs_vprint(1, "start_version: %u\n",
-			le32_to_cpu(sum_entry->start_version));
-	len += hmfs_vprint(1, "count: %u\n", le16_to_cpu(sum_entry->count));
-	len += hmfs_vprint(1, "ont: %u\n", le16_to_cpu(sum_entry->ont));
+	if (blk_addr < sbi->main_addr_start || 
+	    blk_addr >= sbi->main_addr_end){
+		//invalid block addr
+		return -1;		
+	}
+	
+	sum_entry = get_summary_by_addr(sbi, blk_addr);
+
+	len += hmfs_vprint(1, "-- [%016x] --\n", blk_addr>>HMFS_PAGE_SIZE_BITS);
+	len += hmfs_vprint(1, "  nid: %u\n", le32_to_cpu(sum_entry->nid));
+	len += hmfs_vprint(1, "  dead_version: %u\n",
+			   le32_to_cpu(sum_entry->dead_version));
+	len += hmfs_vprint(1, "  start_version: %u\n",
+			   le32_to_cpu(sum_entry->start_version));
+	len += hmfs_vprint(1, "  count: %u\n", le16_to_cpu(sum_entry->count));
+	len += hmfs_vprint(1, "  ont: %u\n", le16_to_cpu(sum_entry->ont));
+	len += hmfs_vprint(1, "\n");
 
 	return len;
-
-	//struct hmfs_summary {
-	//__le32 nid;           /* parent node id */
-	//__le32 dead_version;  /* version of checkpoint delete this block */
-	//__le32 start_version;
-	//__le16 count;         /*  */
-	//__le16 ont;           /* ofs_in_node and type */
-	//} __attribute__ ((packed));
 }
 
-static size_t print_ssa_blk(struct hmfs_sb_info *sbi, size_t blkidx)
+static int print_ssa_range(struct hmfs_sb_info *sbi, block_t idx_from, block_t idx_to)
 {
-	size_t len = 0, i = 0;
+	int len = 0, i = 0, res=-1;
+
 	//struct hmfs_summary_block* sum_blk = get_summary_block(sbi, blkidx);
-	for (i = 0; i < SUM_ENTRY_PER_BLOCK; i++) {
-		len += hmfs_vprint(1, "------%uth summary entry------\n", i);
-		len += print_ssa_one(sbi, blkidx, i);
+	for (i = idx_from; i <= idx_to ; i++) {
+		res = print_ssa_one(sbi, i << HMFS_PAGE_SIZE_BITS);
+		if(res == -1){
+			return -1;
+		}
+		len +=res;
 	}
 	return len;
 }
 
+static size_t print_ssa_per_seg(struct hmfs_sb_info *sbi, block_t segno){
+	block_t idx_from = segno << HMFS_PAGE_PER_SEG_BITS;
+	return print_ssa_range(sbi, idx_from, idx_from + HMFS_PAGE_PER_SEG - 1);
+}
 /*
   Usage:
-      ssa <index> <offset>   --dump entry ssa[index][offset].
-      ssa <index>            --dump total block ssa[index]. 
+      ssa <idx1> <idx2>	-- dump summary of [idx1, idx2]th block 
+      ssa <segno>	-- dump summary of all blocks in [segno]th segment
  */
 static int hmfs_print_ssa(int args, char argv[][MAX_ARG_LEN + 1])
 {
-	size_t len = 0;
-	size_t blkidx = 0, offset = 0;
+	int len = 0, cnt=-1;
+	block_t idx_from = 0, idx_to = 0;
 	struct hmfs_sb_info *sbi = info_buffer.sbi;
 
+	hmfs_vprint(0, "======= SSA INFO =======\n");
 	if (2 == args) {
-		blkidx = (size_t) simple_strtoull(argv[1], NULL, 0);
-		len +=
-		    hmfs_vprint(1,
-				"======Total summary entryies in %uth block======\n",
-				blkidx);
-		len += print_ssa_blk(sbi, blkidx);
-	} else if (3 <= args) {
-		blkidx = (size_t) simple_strtoull(argv[1], NULL, 0);
-		offset = (size_t) simple_strtoull(argv[2], NULL, 0);
-		len +=
-		    hmfs_vprint(1, "======summary entry at [%u][%u]======\n",
-				blkidx, offset);
-		len += print_ssa_one(sbi, blkidx, offset);
+		idx_from = (block_t) simple_strtoull(argv[1], NULL, 0);
+		cnt = print_ssa_per_seg(sbi, idx_from);
+	} else if (3 == args) {
+		idx_from = (block_t) simple_strtoull(argv[1], NULL, 0);
+		idx_to = (block_t) simple_strtoull(argv[2], NULL, 0);
+		cnt = print_ssa_range(sbi, idx_from, idx_to);
 	}
-
+	if(cnt < 0){
+		hmfs_vprint(0, " **error** invalid index: %llu\n", idx_from);  
+		return 0;
+	}
+		len += cnt;
 	return len;
 }
 
@@ -512,8 +517,9 @@ static int hmfs_parse_cmd(const char *cmd, size_t len,
 	for (i = 0, j = 0, args = 0; i < len;) {
 		if (args >= MAX_ARG_NUM)
 			return args;
-		while (i < len && IS_BLANK(cmd[i]))
+		while (i < len && IS_BLANK(cmd[i])){
 			++i;
+		}
 		j = i;
 		while (i < len && !IS_BLANK(cmd[i]))
 			++i;
@@ -547,6 +553,7 @@ static int hmfs_parse_cmd(const char *cmd, size_t len,
  */
 static int hmfs_dispatch_cmd(const char *cmd, int len)
 {
+
 	int args, res = 0;
 	char argv[MAX_ARG_NUM][MAX_ARG_LEN + 1];
 	args = hmfs_parse_cmd(cmd, len, argv);
@@ -557,25 +564,25 @@ static int hmfs_dispatch_cmd(const char *cmd, int len)
 	}
 
 	if (0 == strncasecmp(argv[0], "cp", 2)) {
-		if (args <= 1) {
+		if (args == 1) {
 			hmfs_vprint(0, USAGE_CP);
 			return 0;
 		}
 		res = hmfs_print_cp(args, argv);
 	} else if (0 == strncasecmp(argv[0], "ssa", 3)) {
-		if (args <= 1) {
+		if (args == 1) {
 			hmfs_vprint(0, USAGE_SSA);
 			return 0;
 		}
 		res = hmfs_print_ssa(args, argv);
 	} else if (0 == strncasecmp(argv[0], "sit", 3)) {
-		if (args <= 1) {
+		if (args == 1) {
 			hmfs_vprint(0, USAGE_SIT);
 			return 0;
 		}
 		res = hmfs_print_sit(args, argv);
 	} else if (0 == strncasecmp(argv[0], "nat", 3)) {
-		if (args <= 1) {
+		if (args == 1) {
 			hmfs_vprint(0, USAGE_NAT);
 			return 0;
 		}

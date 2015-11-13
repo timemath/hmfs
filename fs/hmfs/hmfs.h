@@ -673,6 +673,8 @@ void hmfs_create_root_stat(void);
 void hmfs_destroy_root_stat(void);
 int hmfs_build_stats(struct hmfs_sb_info *sbi);
 void hmfs_destroy_stats(struct hmfs_sb_info *sbi);
+int hmfs_build_info(struct hmfs_sb_info *sbi, size_t c);
+void hmfs_destroy_info(void);
 
 struct node_info;
 

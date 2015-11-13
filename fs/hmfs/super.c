@@ -522,6 +522,7 @@ static void hmfs_put_super(struct super_block *sb)
 	}
 
 	hmfs_destroy_stats(sbi);
+	hmfs_destroy_info();
 	stop_gc_thread(sbi);
 	destroy_segment_manager(sbi);
 	destroy_node_manager(sbi);
