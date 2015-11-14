@@ -682,7 +682,7 @@ int hmfs_build_stats(struct hmfs_sb_info *sbi);
 void hmfs_destroy_stats(struct hmfs_sb_info *sbi);
 int hmfs_build_info(struct hmfs_sb_info *sbi, size_t c);
 void hmfs_destroy_info(void);
-
+int hmfs_print(int mode, const char *fmt, ...);
 struct node_info;
 
 /* node.c */

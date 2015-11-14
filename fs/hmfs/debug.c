@@ -8,6 +8,9 @@
 #include "hmfs_fs.h"
 #include "segment.h"
 
+#define GET_BY_ADDR(sbi, type, addr) ( (type)ADDR((sbi), (addr)) )
+
+
 #define MAX_CMD_LEN	((MAX_ARG_LEN + 2) * MAX_ARG_NUM)
 #define MAX_ARG_LEN (12)
 #define MAX_ARG_NUM (5)
@@ -232,7 +235,7 @@ void hmfs_destroy_root_stat(void)
  * 	@mode : 1 means appending, 0 will erase all data in the buffer.
  * 	@return : number of bytes written to file buffer
  */
-static int hmfs_vprint(int mode, const char *fmt, ...)
+int hmfs_print(int mode, const char *fmt, ...)
 {
 	size_t start, len;
 	va_list args;
@@ -255,64 +258,64 @@ static int print_cp_one(struct checkpoint_info *cpi, int detail)
 {
 	size_t len = 0;
 	struct hmfs_checkpoint *cp = cpi->cp;
-	len += hmfs_vprint(1, "version: %u\n", cpi->version);
-	//len += hmfs_vprint(1, "next_version: %u\n", cpi->next_version);       //append
+	len += hmfs_print(1, "version: %u\n", cpi->version);
+	//len += hmfs_print(1, "next_version: %u\n", cpi->next_version);       //append
 	if (detail) {
-		len += hmfs_vprint(1, "------detail info------\n");
+		len += hmfs_print(1, "------detail info------\n");
 		if (NULL == cp) {
-			len += hmfs_vprint(1, "member cp is NULL...\n");
+			len += hmfs_print(1, "member cp is NULL...\n");
 			return len;
 		}
-		//len += hmfs_vprint(1, "member cp is %lu...\n", (unsigned long long)cp);
+		//len += hmfs_print(1, "member cp is %lu...\n", (unsigned long long)cp);
 		len +=
-		    hmfs_vprint(1, "checkpoint_ver: %u\n",
+		    hmfs_print(1, "checkpoint_ver: %u\n",
 				le32_to_cpu(cp->checkpoint_ver));
 		len +=
-		    hmfs_vprint(1, "alloc_block_count: %u\n",
+		    hmfs_print(1, "alloc_block_count: %u\n",
 				le64_to_cpu(cp->alloc_block_count));
 		len +=
-		    hmfs_vprint(1, "valid_block_count: %u\n",
+		    hmfs_print(1, "valid_block_count: %u\n",
 				le64_to_cpu(cp->valid_block_count));
 		len +=
-		    hmfs_vprint(1, "free_segment_count: %u\n",
+		    hmfs_print(1, "free_segment_count: %u\n",
 				le64_to_cpu(cp->free_segment_count));
 		len +=
-		    hmfs_vprint(1, "cur_node_segno: %u\n",
+		    hmfs_print(1, "cur_node_segno: %u\n",
 				le32_to_cpu(cp->cur_node_segno));
 		len +=
-		    hmfs_vprint(1, "cur_node_blkoff: %u\n",
+		    hmfs_print(1, "cur_node_blkoff: %u\n",
 				le16_to_cpu(cp->cur_node_blkoff));
 		len +=
-		    hmfs_vprint(1, "cur_data_segno: %u\n",
+		    hmfs_print(1, "cur_data_segno: %u\n",
 				le32_to_cpu(cp->cur_data_segno));
 		len +=
-		    hmfs_vprint(1, "cur_data_blkoff: %u\n",
+		    hmfs_print(1, "cur_data_blkoff: %u\n",
 				le16_to_cpu(cp->cur_data_blkoff));
 		len +=
-		    hmfs_vprint(1, "prev_cp_addr: %x\n",
+		    hmfs_print(1, "prev_cp_addr: %x\n",
 				le64_to_cpu(cp->prev_cp_addr));
 		len +=
-		    hmfs_vprint(1, "next_cp_addr: %x\n",
+		    hmfs_print(1, "next_cp_addr: %x\n",
 				le64_to_cpu(cp->checkpoint_ver));
-		//len += hmfs_vprint(1, "next_version: %u\n", le32_to_cpu(cp->next_version));
+		//len += hmfs_print(1, "next_version: %u\n", le32_to_cpu(cp->next_version));
 		len +=
-		    hmfs_vprint(1, "valid_inode_count: %u\n",
+		    hmfs_print(1, "valid_inode_count: %u\n",
 				le32_to_cpu(cp->valid_inode_count));
 		len +=
-		    hmfs_vprint(1, "valid_node_count: %u\n",
+		    hmfs_print(1, "valid_node_count: %u\n",
 				le32_to_cpu(cp->valid_node_count));
 		len +=
-		    hmfs_vprint(1, "nat_addr: %x\n", le64_to_cpu(cp->nat_addr));
+		    hmfs_print(1, "nat_addr: %x\n", le64_to_cpu(cp->nat_addr));
 		len +=
-		    hmfs_vprint(1, "orphan_addr: %x\n",
+		    hmfs_print(1, "orphan_addr: %x\n",
 				le64_to_cpu(cp->orphan_addr));
 		len +=
-		    hmfs_vprint(1, "next_scan_nid: %u\n",
+		    hmfs_print(1, "next_scan_nid: %u\n",
 				le32_to_cpu(cp->next_scan_nid));
 		len +=
-		    hmfs_vprint(1, "elapsed_time: %u\n",
+		    hmfs_print(1, "elapsed_time: %u\n",
 				le32_to_cpu(cp->elapsed_time));
-		len += hmfs_vprint(1, "\n");
+		len += hmfs_print(1, "\n");
 	}
 	return len;
 }
@@ -334,7 +337,7 @@ static int print_cp_nth(struct hmfs_sb_info *sbi, int n, int detail)
 		len = print_cp_one(cpi, detail);
 	else
 		len =
-		    hmfs_vprint(1, "there doesn't have %u checkpoints.\n",
+		    hmfs_print(1, "there doesn't have %u checkpoints.\n",
 				n + 1);
 	return len;
 }
@@ -349,12 +352,12 @@ static int print_cp_all(struct hmfs_sb_info *sbi, int detail)
 	head = &cpi->list;
 	list_for_each(this, head) {
 		entry = list_entry(this, struct checkpoint_info, list);
-		hmfs_vprint(1, "------%uth checkpoint info------\n", i++);
+		hmfs_print(1, "------%uth checkpoint info------\n", i++);
 		len += print_cp_one(entry, 0);	//member cp can't be used except for current checkpint
 		//len += print_cp_one(cpi, detail);
 	}
 	if (0 == i)
-		len = hmfs_vprint(1, "None.\n");
+		len = hmfs_print(1, "None.\n");
 	return len;
 }
 
@@ -377,14 +380,14 @@ static int hmfs_print_cp(int args, char argv[][MAX_ARG_LEN + 1])
 	if (args >= 3 && '0' == argv[2][0])
 		detail = 0;
 	if ('c' == opt[0]) {
-		hmfs_vprint(1, "======Current checkpoint info======\n");
+		hmfs_print(1, "======Current checkpoint info======\n");
 		len = print_cp_one(cur, detail);
 	} else if ('a' == opt[0]) {
-		hmfs_vprint(1, "======Total checkpoints info======\n");
+		hmfs_print(1, "======Total checkpoints info======\n");
 		len = print_cp_all(sbi, detail);
 	} else {
 		unsigned long long n = simple_strtoull(opt, NULL, 0);
-		hmfs_vprint(1, "======%luth checkpoint info======\n", n);
+		hmfs_print(1, "======%luth checkpoint info======\n", n);
 		len = print_cp_nth(sbi, n, detail);
 	}
 	return len;
@@ -407,15 +410,15 @@ static size_t print_ssa_one(struct hmfs_sb_info *sbi, block_t blk_addr)
 	
 	sum_entry = get_summary_by_addr(sbi, blk_addr);
 
-	len += hmfs_vprint(1, "-- [%016x] --\n", blk_addr>>HMFS_PAGE_SIZE_BITS);
-	len += hmfs_vprint(1, "  nid: %u\n", le32_to_cpu(sum_entry->nid));
-	len += hmfs_vprint(1, "  dead_version: %u\n",
+	len += hmfs_print(1, "-- [%016x] --\n", blk_addr>>HMFS_PAGE_SIZE_BITS);
+	len += hmfs_print(1, "  nid: %u\n", le32_to_cpu(sum_entry->nid));
+	len += hmfs_print(1, "  dead_version: %u\n",
 			   le32_to_cpu(sum_entry->dead_version));
-	len += hmfs_vprint(1, "  start_version: %u\n",
+	len += hmfs_print(1, "  start_version: %u\n",
 			   le32_to_cpu(sum_entry->start_version));
-	len += hmfs_vprint(1, "  count: %u\n", le16_to_cpu(sum_entry->count));
-	len += hmfs_vprint(1, "  ont: %u\n", le16_to_cpu(sum_entry->ont));
-	len += hmfs_vprint(1, "\n");
+	len += hmfs_print(1, "  count: %u\n", le16_to_cpu(sum_entry->count));
+	len += hmfs_print(1, "  ont: %u\n", le16_to_cpu(sum_entry->ont));
+	len += hmfs_print(1, "\n");
 
 	return len;
 }
@@ -450,7 +453,7 @@ static int hmfs_print_ssa(int args, char argv[][MAX_ARG_LEN + 1])
 	block_t idx_from = 0, idx_to = 0;
 	struct hmfs_sb_info *sbi = info_buffer.sbi;
 
-	hmfs_vprint(0, "======= SSA INFO =======\n");
+	hmfs_print(0, "======= SSA INFO =======\n");
 	if (2 == args) {
 		idx_from = (block_t) simple_strtoull(argv[1], NULL, 0);
 		cnt = print_ssa_per_seg(sbi, idx_from);
@@ -460,7 +463,7 @@ static int hmfs_print_ssa(int args, char argv[][MAX_ARG_LEN + 1])
 		cnt = print_ssa_range(sbi, idx_from, idx_to);
 	}
 	if(cnt < 0){
-		hmfs_vprint(0, " **error** invalid index: %llu\n", idx_from);  
+		hmfs_print(0, " **error** invalid index: %llu\n", idx_from);  
 		return 0;
 	}
 		len += cnt;
@@ -472,18 +475,18 @@ static size_t print_sit_i(struct hmfs_sb_info *sbi)
 	size_t len = 0;
 	struct sit_info *sit_i = SIT_I(sbi);
 /*
-	len += hmfs_vprint(1, "sit_blocks: %u\n", sit_i->sit_blocks);
+	len += hmfs_print(1, "sit_blocks: %u\n", sit_i->sit_blocks);
 	len +=
-	    hmfs_vprint(1, "written_valid_blocks: %u\n",
+	    hmfs_print(1, "written_valid_blocks: %u\n",
 			sit_i->written_valid_blocks);
-	len += hmfs_vprint(1, "bitmap_size: %llu\n", sit_i->bitmap_size);
+	len += hmfs_print(1, "bitmap_size: %llu\n", sit_i->bitmap_size);
 
-	len += hmfs_vprint(1, "dirty_sentries: %u\n", sit_i->dirty_sentries);
-	len += hmfs_vprint(1, "sents_per_block: %u\n", sit_i->sents_per_block);
-	len += hmfs_vprint(1, "elapsed_time: %llu\n", sit_i->elapsed_time);
-	len += hmfs_vprint(1, "mounted_time: %llu\n", sit_i->mounted_time);
-	len += hmfs_vprint(1, "min_mtime: %llu\n", sit_i->min_mtime);
-	len += hmfs_vprint(1, "max_mtime: %llu\n", sit_i->max_mtime);
+	len += hmfs_print(1, "dirty_sentries: %u\n", sit_i->dirty_sentries);
+	len += hmfs_print(1, "sents_per_block: %u\n", sit_i->sents_per_block);
+	len += hmfs_print(1, "elapsed_time: %llu\n", sit_i->elapsed_time);
+	len += hmfs_print(1, "mounted_time: %llu\n", sit_i->mounted_time);
+	len += hmfs_print(1, "min_mtime: %llu\n", sit_i->min_mtime);
+	len += hmfs_print(1, "max_mtime: %llu\n", sit_i->max_mtime);
 	*/
 
 	return len;
@@ -505,6 +508,132 @@ static int hmfs_print_nat(int args, char argv[][MAX_ARG_LEN + 1])
 static int hmfs_print_data(int args, char argv[][MAX_ARG_LEN + 1])
 {
 	return 0;
+}
+
+static int hmfs_check_ssa(
+	struct hmfs_sb_info *sbi, 
+	block_t cp_addr, 
+	block_t blk_addr, 
+	size_t h, 
+	size_t offset)
+{
+	uint cp_ver, dead_ver, start_ver;
+	struct hmfs_checkpoint* cp;
+	struct hmfs_summary* summary;
+	cp = (struct hmfs_checkpoint*)ADDR(sbi, cp_addr);
+	summary = get_summary_by_addr(sbi, blk_addr);
+
+	//check summary type
+	if ( (0 != h && SUM_TYPE_NATN != get_summary_type(summary))
+		|| (0 == h && SUM_TYPE_NATD != get_summary_type(summary)) ) {
+		hmfs_print(1, "**error** summary type error: ");
+		hmfs_print(1, "type of nat node at %#x should be %d, but get %d \n", 
+			blk_addr, h ? SUM_TYPE_NATN : SUM_TYPE_NATD, 
+			get_summary_type(summary));
+		return -1;
+	}
+
+	//check offset
+	if (offset != get_summary_offset(summary)) {
+		hmfs_print(1, "**error** summary offset error: ");
+		hmfs_print(1, "offset nat node at %#x should be %d, but get %d \n", 
+			blk_addr, offset, get_summary_offset(summary));
+		return -1;
+	}
+
+	//check version
+	cp_ver = le32_to_cpu(cp->checkpoint_ver);
+	dead_ver = le32_to_cpu(summary->dead_version);
+	start_ver = le32_to_cpu(summary->start_version);
+	if ( (0 != dead_ver && cp_ver >= dead_ver) || cp_ver < start_ver) {
+		hmfs_print(1, "**error** summary version error: ");
+		hmfs_print(1, "version of nat node at %#x, ");
+		if (cp_ver >= dead_ver) {
+			hmfs_print(1, "checkpoint version(%d) >= dead version(%d)\n", 
+				cp_ver, dead_ver);
+		} else {
+			hmfs_print(1, "checkpoint version(%d) < start version(%d)\n", 
+				cp_ver, start_ver);
+		}
+		return -1;
+	}
+
+	return 0;
+}
+
+static int traverse_nat(
+	struct hmfs_sb_info *sbi, 
+	block_t cp_addr, 
+	block_t root_addr, 
+	size_t h, 
+	size_t offset)
+{
+	int err = 0;
+	size_t i;
+	struct hmfs_nat_node* root;
+
+	if (!root_addr)
+		return 0;
+	hmfs_print(1, "sbi->nat_height: %d\n", sbi->nat_height);
+	hmfs_print(1, "nat root address: %#x, height: %d, offset: %d\n", root_addr, h, offset);
+	print_ssa_one(sbi, root_addr);
+	err = hmfs_check_ssa(sbi, cp_addr, root_addr, h, offset);
+	if (0 != err)
+		return err;
+
+	if (0 == h) { //get the nat entry
+		//TODO: make node summary check
+		return err;
+	}
+
+	root = (struct hmfs_nat_node*)ADDR(sbi, root_addr);
+	for (i = 0; i < NAT_ADDR_PER_NODE; i++) {
+		block_t child_addr = le64_to_cpu(root->addr[i]);
+		err = traverse_nat(sbi, cp_addr, child_addr, h - 1, i);
+		if (0 != err)	//stop if found error
+			break;
+	}
+	return err;
+}
+
+/*
+ *description: 
+ *	check consistency of meta info on NVM.
+ * @return: return the error code; 0, no error.
+ */
+static int hmfs_consis(void)
+{
+	int err = 0;
+	struct hmfs_sb_info *sbi = info_buffer.sbi;
+	block_t cp_head_addr, cp_addr;
+	struct hmfs_super_block *sb = HMFS_RAW_SUPER(sbi);
+	struct hmfs_cm_info* cmi = sbi->cm_info;
+	struct checkpoint_info* cur_cpi = cmi->cur_cp_i;
+	hmfs_print(1, "cmi->valid_inode: %d\n", cmi->valid_inode_count);
+
+
+	//check summary
+	hmfs_print(1, "======= check summary ======\n");
+	cp_head_addr = le64_to_cpu(sb->cp_page_addr);
+	cp_head_addr = le64_to_cpu(((struct hmfs_checkpoint*)ADDR(sbi, cp_head_addr))->prev_cp_addr);
+	for (cp_addr = cp_head_addr; ;) {
+		struct hmfs_checkpoint* cp;
+		cp = (struct hmfs_checkpoint*)ADDR(sbi, cp_addr);
+		hmfs_print(1, "checkpoint address: %#x\n", cp_addr);
+		hmfs_print(1, "valid inode count: %d\n", le32_to_cpu(cp->valid_inode_count));
+		hmfs_print(1, "valid node count: %d\n", le32_to_cpu(cp->valid_node_count));
+		err = traverse_nat(sbi, cp_addr, le64_to_cpu(cp->nat_addr), sbi->nat_height, 0);
+		//if (0 != err)
+		//	return err;
+		cp_addr = le64_to_cpu(((struct hmfs_checkpoint*)ADDR(sbi, cp_addr))->prev_cp_addr);
+		if (cp_addr == cp_head_addr)
+			break;
+	}
+	hmfs_print(1, "check summary done.\n");
+
+	//TODO: other consistency checking
+
+	return err;
 }
 
 #define IS_BLANK(ch) (' ' == (ch) || '\t' == (ch) || '\n' == (ch))
@@ -560,42 +689,45 @@ static int hmfs_dispatch_cmd(const char *cmd, int len)
 	args = hmfs_parse_cmd(cmd, len, argv);
 	if (args <= 0) {
 		//print usage guide
-		hmfs_vprint(0, USAGE);
+		hmfs_print(0, USAGE);
 		return -EFAULT;
 	}
 
+	hmfs_print(0, "");	//clear the buffer
 	if (0 == strncasecmp(argv[0], "cp", 2)) {
 		if (args == 1) {
-			hmfs_vprint(0, USAGE_CP);
+			hmfs_print(0, USAGE_CP);
 			return 0;
 		}
 		res = hmfs_print_cp(args, argv);
 	} else if (0 == strncasecmp(argv[0], "ssa", 3)) {
 		if (args == 1) {
-			hmfs_vprint(0, USAGE_SSA);
+			hmfs_print(0, USAGE_SSA);
 			return 0;
 		}
 		res = hmfs_print_ssa(args, argv);
 	} else if (0 == strncasecmp(argv[0], "sit", 3)) {
 		if (args == 1) {
-			hmfs_vprint(0, USAGE_SIT);
+			hmfs_print(0, USAGE_SIT);
 			return 0;
 		}
 		res = hmfs_print_sit(args, argv);
 	} else if (0 == strncasecmp(argv[0], "nat", 3)) {
 		if (args == 1) {
-			hmfs_vprint(0, USAGE_NAT);
+			hmfs_print(0, USAGE_NAT);
 			return 0;
 		}
 		res = hmfs_print_nat(args, argv);
 	} else if (0 == strncasecmp(argv[0], "data", 4)) {
 		if (args <= 1) {
-			hmfs_vprint(0, USAGE_DATA);
+			hmfs_print(0, USAGE_DATA);
 			return 0;
 		}
 		res = hmfs_print_data(args, argv);
+	} else if(0 == strncasecmp(argv[0], "consis", 6)) {
+		res = hmfs_consis();
 	} else {
-		hmfs_vprint(0, USAGE);
+		hmfs_print(0, USAGE);
 		return -EFAULT;
 	}
 
