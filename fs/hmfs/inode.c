@@ -48,7 +48,6 @@ static int do_read_inode(struct inode *inode)
 	set_nlink(inode, le32_to_cpu(hi->i_links));
 	inode->i_size = le64_to_cpu(hi->i_size);
 	inode->i_blocks = le64_to_cpu(hi->i_blocks);
-
 	inode->i_atime.tv_sec = le64_to_cpu(hi->i_atime);
 	inode->i_ctime.tv_sec = le64_to_cpu(hi->i_ctime);
 	inode->i_mtime.tv_sec = le64_to_cpu(hi->i_mtime);
@@ -88,6 +87,7 @@ int sync_hmfs_inode_size(struct inode *inode)
 		return PTR_ERR(hn);
 	hi = &hn->i;
 	hi->i_size = cpu_to_le64(inode->i_size);
+	hi->i_blocks = cpu_to_le64(inode->i_blocks);
 
 	clear_inode_flag(inode_i, FI_DIRTY_SIZE);
 	if (!is_inode_flag_set(inode_i, FI_DIRTY_INODE)) {

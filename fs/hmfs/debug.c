@@ -473,7 +473,10 @@ static int hmfs_print_ssa(int args, char argv[][MAX_ARG_LEN + 1])
 static size_t print_sit_i(struct hmfs_sb_info *sbi)
 {
 	size_t len = 0;
+<<<<<<< HEAD
 	struct sit_info *sit_i = SIT_I(sbi);
+=======
+>>>>>>> fedf906e7ba77dec6861827520ff040040e92e7a
 /*
 	len += hmfs_print(1, "sit_blocks: %u\n", sit_i->sit_blocks);
 	len +=
@@ -510,16 +513,15 @@ static int hmfs_print_data(int args, char argv[][MAX_ARG_LEN + 1])
 	return 0;
 }
 
-static int hmfs_check_ssa(
-	struct hmfs_sb_info *sbi, 
-	block_t cp_addr, 
-	block_t blk_addr, 
-	size_t h, 
-	size_t offset)
+static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr, 
+			  block_t blk_addr, size_t h, size_t offset, block_t nid)
 {
 	uint cp_ver, dead_ver, start_ver;
 	struct hmfs_checkpoint* cp;
 	struct hmfs_summary* summary;
+
+	block_t raw_nid, raw_height;
+	int ret_val = 0;
 	cp = (struct hmfs_checkpoint*)ADDR(sbi, cp_addr);
 	summary = get_summary_by_addr(sbi, blk_addr);
 
@@ -528,17 +530,32 @@ static int hmfs_check_ssa(
 		|| (0 == h && SUM_TYPE_NATD != get_summary_type(summary)) ) {
 		hmfs_print(1, "**error** summary type error: ");
 		hmfs_print(1, "type of nat node at %#x should be %d, but get %d \n", 
-			blk_addr, h ? SUM_TYPE_NATN : SUM_TYPE_NATD, 
-			get_summary_type(summary));
-		return -1;
+			blk_addr, h ? SUM_TYPE_NATN : SUM_TYPE_NATD, get_summary_type(summary));
+		ret_val = -1;
 	}
 
-	//check offset
-	if (offset != get_summary_offset(summary)) {
-		hmfs_print(1, "**error** summary offset error: ");
-		hmfs_print(1, "offset nat node at %#x should be %d, but get %d \n", 
-			blk_addr, offset, get_summary_offset(summary));
-		return -1;
+	//check offset && nid
+	if (h!= sbi->nat_height){
+		raw_height = get_summary_nid(summary) >> 27; 
+		raw_nid = (get_summary_nid(summary) & 0x7ffffff); 
+		if (offset != get_summary_offset(summary)) {
+			hmfs_print(1, "**error** summary offset error: ");
+			hmfs_print(1, "offset nat node at %#x should be %d, but get %d \n", 
+				blk_addr, offset, get_summary_offset(summary));
+			ret_val = -1;
+		}
+		if (h+1 != raw_height){
+			hmfs_print(1, "**error** summary height error: ");
+			hmfs_print(1, "offset nat node at %#x should be %d, but get %llu \n", 
+				blk_addr, h+1, raw_height);
+			ret_val = -1;
+		}
+		if (nid != raw_nid){
+			hmfs_print(1, "**error** summary block order error: ");
+			hmfs_print(1, "offset nat node at %#x should be %d, but get %llu \n", 
+				blk_addr, h, raw_nid);
+			ret_val = -1;
+		}
 	}
 
 	//check version
@@ -555,31 +572,33 @@ static int hmfs_check_ssa(
 			hmfs_print(1, "checkpoint version(%d) < start version(%d)\n", 
 				cp_ver, start_ver);
 		}
-		return -1;
+		ret_val = -1;
 	}
 
-	return 0;
+	return ret_val;
 }
 
-static int traverse_nat(
-	struct hmfs_sb_info *sbi, 
-	block_t cp_addr, 
-	block_t root_addr, 
-	size_t h, 
-	size_t offset)
+static int traverse_nat(struct hmfs_sb_info *sbi, block_t cp_addr, 
+			block_t root_addr, size_t h, block_t nid)
 {
 	int err = 0;
 	size_t i;
 	struct hmfs_nat_node* root;
 
+	size_t offset = nid >> (h * LOG2_NAT_ADDRS_PER_NODE);
+
 	if (!root_addr)
 		return 0;
 	hmfs_print(1, "sbi->nat_height: %d\n", sbi->nat_height);
-	hmfs_print(1, "nat root address: %#x, height: %d, offset: %d\n", root_addr, h, offset);
-	print_ssa_one(sbi, root_addr);
-	err = hmfs_check_ssa(sbi, cp_addr, root_addr, h, offset);
-	if (0 != err)
+	hmfs_print(1, "nat root address: %p, height: %d, offset: %d\n", root_addr, h, offset);
+
+	err = hmfs_check_ssa(sbi, cp_addr, root_addr, h, offset, nid);
+	if (0 != err){
+		hmfs_print(1, "\n----- ERROR BLK INFO -----\n");
+		print_ssa_one(sbi, root_addr);
+		hmfs_print(1, "--------------------------\n");
 		return err;
+	}
 
 	if (0 == h) { //get the nat entry
 		//TODO: make node summary check
@@ -589,7 +608,9 @@ static int traverse_nat(
 	root = (struct hmfs_nat_node*)ADDR(sbi, root_addr);
 	for (i = 0; i < NAT_ADDR_PER_NODE; i++) {
 		block_t child_addr = le64_to_cpu(root->addr[i]);
-		err = traverse_nat(sbi, cp_addr, child_addr, h - 1, i);
+		hmfs_print(1, ">>>>>>>>>>> %p -> %p, height is %d\n", root_addr, child_addr, h);
+		err = traverse_nat(sbi, cp_addr, child_addr, h - 1, 
+				   nid + (i << ((h-1) * LOG2_NAT_ADDRS_PER_NODE)));
 		if (0 != err)	//stop if found error
 			break;
 	}
@@ -608,7 +629,7 @@ static int hmfs_consis(void)
 	block_t cp_head_addr, cp_addr;
 	struct hmfs_super_block *sb = HMFS_RAW_SUPER(sbi);
 	struct hmfs_cm_info* cmi = sbi->cm_info;
-	struct checkpoint_info* cur_cpi = cmi->cur_cp_i;
+
 	hmfs_print(1, "cmi->valid_inode: %d\n", cmi->valid_inode_count);
 
 
@@ -629,7 +650,7 @@ static int hmfs_consis(void)
 		if (cp_addr == cp_head_addr)
 			break;
 	}
-	hmfs_print(1, "check summary done.\n");
+	hmfs_print(1, "=== check summary done ===\n");
 
 	//TODO: other consistency checking
 

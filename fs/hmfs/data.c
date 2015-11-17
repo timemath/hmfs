@@ -86,7 +86,7 @@ int get_dnode_of_data(struct dnode_of_data *dn, int index, int mode)
 				goto out;
 			}
 		} else {
-			hmfs_bug_on(sbi, 1);
+			return -ENODATA;
 		}
 		if (i < level) {
 			parent = blocks[i];
@@ -99,7 +99,8 @@ int get_dnode_of_data(struct dnode_of_data *dn, int index, int mode)
 	dn->node_block = blocks[level];
 	dn->level = level;
 	return 0;
-out:	return err;
+out:
+	return err;
 }
 
 /**
@@ -150,7 +151,8 @@ int get_data_blocks(struct inode *inode, int start, int end, void **blocks,
 			addr = dn.node_block->addr[ofs_in_node++];
 		}
 		if (addr == NULL_ADDR) {
-fill_null:		blocks[*size] = NULL;
+fill_null:		
+			blocks[*size] = NULL;
 			err = -ENODATA;
 		} else
 			blocks[*size] = ADDR(sbi, addr);
@@ -316,6 +318,7 @@ static void *__alloc_new_data_block(struct inode *inode, int block)
 
 	if (src_addr != NULL_ADDR)
 		hmfs_memcpy(dest, src, HMFS_PAGE_SIZE);
+	else memset_nt(dest, 0, HMFS_PAGE_SIZE);
 
 	setup_summary_of_new_data_block(sbi, new_addr, src_addr, inode->i_ino,
 					dn.ofs_in_node);

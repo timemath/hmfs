@@ -21,7 +21,6 @@ static struct inode *hmfs_new_inode(struct inode *dir, umode_t mode)
 		err = -ENOSPC;
 		goto fail;
 	}
-
 	inode->i_uid = current_fsuid();
 
 	if (dir->i_mode & S_ISGID) {
@@ -210,7 +209,6 @@ static int hmfs_unlink(struct inode *dir, struct dentry *dentry)
 		goto fail;
 	}
 	de = &res_blk->dentry[ofs_in_blk];
-	//FIXME: mutex?
 	hmfs_delete_entry(de, res_blk, dir, inode, bidx);
 
 	mutex_unlock_op(sbi, ilock);
@@ -264,7 +262,6 @@ static int hmfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 
 	if (new_inode) {
-			printk(KERN_INFO"%s-%d\n",__FUNCTION__,__LINE__);
 		err = -ENOTEMPTY;
 		if (old_dir_entry && !hmfs_empty_dir(new_inode))
 			goto out_k;
@@ -299,7 +296,6 @@ static int hmfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		}
 		mark_inode_dirty(new_inode);
 	} else {
-			printk(KERN_INFO"%s-%d\n",__FUNCTION__,__LINE__);
 		err = hmfs_add_link(new_dentry, old_inode);
 		if (err)
 			goto out_k;

@@ -106,7 +106,7 @@ enum FILE_TYPE {
 #define LOG2_NAT_ADDRS_PER_NODE 9
 #define BITS_PER_NID 32
 #define LOG2_NAT_ENTRY_PER_BLOCK 9	//relatedd to ^
-#define NID_TO_BLOCK_OFS(nid)		(nid % NAT_ENTRY_PER_BLOCK)
+#define NID_TO_BLOCK_OFS(nid)		((nid) % NAT_ENTRY_PER_BLOCK)
 
 #define SIT_ENTRY_SIZE (sizeof(struct hmfs_sit_entry))
 #define SIT_ENTRY_PER_BLOCK (HMFS_PAGE_SIZE / SIT_ENTRY_SIZE)
@@ -157,6 +157,15 @@ struct hmfs_super_block {
 } __attribute__ ((packed));
 
 /* hmfs inode */
+/*
+ * What is the difference between i_size and i_blocks?
+ * i_size is used to determine the end of data blocks,
+ * i.e. end_blk = i_size >> HMFS_PAGE_SIZE_BITS, is the
+ * last valid data block. But there maybe no data in that
+ * block and the block whose id is small than end_blk.
+ * i_blocks is the exact number of data blocks that
+ * an inode contain.
+ */
 struct hmfs_inode {
 	__le16 i_mode;		/* file mode */
 	__u8 i_advise;		/* file hints */

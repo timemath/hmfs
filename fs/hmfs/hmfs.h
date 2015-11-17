@@ -183,6 +183,7 @@ struct hmfs_sb_info {
 	kuid_t uid;						/* user id */
 	kgid_t gid;						/* group id */
 	char support_bg_gc;				/* Support bg gc or not */
+	char deep_fmt;				/* whether set 0 of whole area of NVM */
 
 	/* FS statisic */
 	pgc_t segment_count;			/* # of all segments */
@@ -577,7 +578,7 @@ static inline void make_dentry_ptr(struct hmfs_dentry_ptr *d, void *src,
 	struct hmfs_dentry_block *t = (struct hmfs_dentry_block *)src;
 
 	d->max = NR_DENTRY_IN_BLOCK;
-	d->bitmap = &t->dentry_bitmap;
+	d->bitmap = t->dentry_bitmap;
 	d->dentry = t->dentry;
 	d->filename = t->filename;
 }
@@ -669,6 +670,7 @@ void hmfs_set_inode_flags(struct inode *inode);
 
 /* file.c */
 int truncate_data_blocks_range(struct dnode_of_data *dn, int count);
+unsigned int hmfs_dir_seek_data_reverse(struct inode *dir, unsigned int end_blk);
 void truncate_data_blocks(struct dnode_of_data *dn);
 void hmfs_truncate(struct inode *inode);
 int truncate_hole(struct inode *inode, pgoff_t start, pgoff_t end);
