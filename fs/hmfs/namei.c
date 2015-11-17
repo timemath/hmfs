@@ -92,6 +92,7 @@ struct inode *hmfs_make_dentry(struct inode *dir, struct dentry *dentry,
 		goto out;
 	return inode;
 out:
+	hmfs_print(1, "**error**: make dentry failed\n");
 	clear_nlink(inode);
 	unlock_new_inode(inode);
 	make_bad_inode(inode);
@@ -125,10 +126,12 @@ static int hmfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 		       bool excl)
 {
 	struct inode *inode;
-
+	hmfs_print(1, "info: create file\n");
 	inode = hmfs_make_dentry(dir, dentry, mode);
-	if (IS_ERR(inode))
+	if (IS_ERR(inode)) {
+		hmfs_print(1, "**error**: create file failed\n");
 		return PTR_ERR(inode);
+	}
 	inode->i_op = &hmfs_file_inode_operations;
 	inode->i_fop = &hmfs_file_operations;
 	inode->i_mapping->a_ops = &hmfs_dblock_aops;
