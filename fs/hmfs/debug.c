@@ -473,10 +473,6 @@ static int hmfs_print_ssa(int args, char argv[][MAX_ARG_LEN + 1])
 static size_t print_sit_i(struct hmfs_sb_info *sbi)
 {
 	size_t len = 0;
-<<<<<<< HEAD
-	struct sit_info *sit_i = SIT_I(sbi);
-=======
->>>>>>> fedf906e7ba77dec6861827520ff040040e92e7a
 /*
 	len += hmfs_print(1, "sit_blocks: %u\n", sit_i->sit_blocks);
 	len +=
@@ -513,8 +509,209 @@ static int hmfs_print_data(int args, char argv[][MAX_ARG_LEN + 1])
 	return 0;
 }
 
+static int hmfs_print_inode(struct hmfs_inode* inode)
+{
+	size_t len = 0;
+	len += hmfs_print(1, "======= INODE INFO =======\n");
+	len += hmfs_print(1, "i_mode: %d\n", le16_to_cpu(inode->i_mode));
+	len += hmfs_print(1, "i_advise: %d\n", le8_to_cpu(inode->i_advise));
+	len += hmfs_print(1, "i_inline: %d\n", le8_to_cpu(inode->i_inline));
+	len += hmfs_print(1, "i_uid: %d\n", le32_to_cpu(inode->i_uid));
+	len += hmfs_print(1, "i_gid: %d\n", le32_to_cpu(inode->i_gid));
+	len += hmfs_print(1, "i_links: %d\n", le32_to_cpu(inode->i_links));
+	len += hmfs_print(1, "i_size: %d\n", le64_to_cpu(inode->i_size));
+	len += hmfs_print(1, "i_blocks: %d\n", le64_to_cpu(inode->i_blocks));
+	len += hmfs_print(1, "i_atime: %d\n", le64_to_cpu(inode->i_atime));
+	len += hmfs_print(1, "i_ctime: %d\n", le64_to_cpu(inode->i_ctime));
+	len += hmfs_print(1, "i_mtime: %d\n", le64_to_cpu(inode->i_mtime));
+	len += hmfs_print(1, "i_generation: %d\n", le32_to_cpu(inode->i_generation));
+	len += hmfs_print(1, "i_current_depth: %d\n", le32_to_cpu(inode->i_current_depth));
+	len += hmfs_print(1, "i_xattr_nid: %d\n", le32_to_cpu(inode->i_xattr_nid));
+	len += hmfs_print(1, "i_flags: %d\n", le32_to_cpu(inode->i_flags));
+	len += hmfs_print(1, "i_pino: %d\n", le32_to_cpu(inode->i_pino));
+	len += hmfs_print(1, "i_namelen: %d\n", le32_to_cpu(inode->i_namelen));
+	len += hmfs_print(1, "i_name: %s\n", inode->i_name);
+	len += hmfs_print(1, "i_dir_level: %d\n", inode->i_dir_level);
+	len += hmfs_print(1, "i_nid: %d %d %d %d %d\n", 
+		le16_to_cpu(inode->i_nid[0]), 
+		le16_to_cpu(inode->i_nid[1]), 
+		le16_to_cpu(inode->i_nid[2]), 
+		le16_to_cpu(inode->i_nid[3]), 
+		le16_to_cpu(inode->i_nid[4]));
+	return len;
+}
+
+static int hmfs_check_inode(struct hmfs_sb_info* sbi, block_t cp_addr, 
+	block_t inode_addr, uint64_t ino)
+{
+	int err = 0;
+	size_t blk_cnt = 0;
+	struct hmfs_checkpoint* cp;
+	struct hmfs_inode* inode;
+	cp = (struct hmfs_checkpoint*)ADDR(sbi, cp_addr);
+	inode = (struct hmfs_inode*)ADDR(sbi, inode_addr);
+
+	err = scan_inode(sbi, cp, inode, ino, &blk_cnt);
+
+	if (*blk_cnt != le64_to_cpu(inode->i_blocks)) {
+		hmfs_print(1, "**error** file blocks doesn't match: ");
+		hmfs_print(1, "i_blocks = %d, scaned blocks = %d\n", 
+			le64_to_cpu(inode->i_blocks), *blk_cnt);
+		return -1;
+	}
+
+	if (((le64_to_cpu(inode->i_size) + HMFS_PAGE_SIZE - 1) \
+		>> HMFS_PAGE_SIZE_BITS) != *blk_cnt) {
+		hmfs_print(1, "**error** file size doesn't match: ");
+		hmfs_print(1, "i_size = %d, scaned blocks = %d\n", 
+			le64_to_cpu(inode->i_size), *blk_cnt);
+		return -1;
+	}
+	return err;
+}
+
+static int scan_inode(struct hmfs_sb_info *sbi, 
+	struct hmfs_checkpoint* cp, struct hmfs_inode* inode, 
+	uint64_t ino, size_t* blk_cnt)
+{
+	size_t i, j, t;
+	int err = 0;
+	struct hmfs_node* direct[2];
+	struct hmfs_node* indirect[2];
+	struct hmfs_node* d_indirect;
+
+	direct[0] = get_node(sbi, le32_to_cpu(inode->i_nid[0]));
+	direct[1] = get_node(sbi, le32_to_cpu(inode->i_nid[1]));
+	indirect[0] = get_node(sbi, le32_to_cpu(inode->i_nid[2]));
+	indirect[1] = get_node(sbi, le32_to_cpu(inode->i_nid[3]));
+	d_indirect = get_node(sbi, le32_to_cpu(inode->i_nid[4]));
+
+	*blk_cnt = 0;
+	//normal data checking
+	for (i = 0; i < NORMAL_ADDRS_PER_INODE; i++) {
+		block_t data_addr = le64_to_cpu(inode->i_addr[i]);
+		if (NULL_ADDR == data_addr)
+			goto NODATA;
+		++(*blk_cnt);
+		//TODO: data block checking
+	}
+	hmfs_print(1, "normal data blocks: %d\n", *blk_cnt);
+
+	//direct node checking
+	for (t = 0; t < 2; t++) {
+		if (ERR_PTR(-ENODATA) == direct[t]) 
+			goto NODATA;
+		err = hmfs_check_node(sbi, cp, inode, direct[t], ino);
+		if (0 != err) return err;
+		for (i = 0; i < ADDRS_PER_BLOCK; i++) {
+			block_t data_addr = le64_to_cpu(direct[t]->i_addr[i]);
+			if (NULL_ADDR == data_addr)
+				goto NODATA;
+			++(*blk_cnt);
+			//TODO: insert the data block to a set
+			//TODO: data block checking
+		}
+	}
+	hmfs_print(1, "normal + direct data blocks: %d\n", *blk_cnt);
+
+
+	//indrect node checking
+	for (t = 0; t < 2; t++) {
+		if (ERR_PTR(-ENODATA) == indirect[t]) 
+			goto NODATA;
+		err = hmfs_check_node(sbi, cp, inode, indirect[t], ino);
+		if (0 != err) return err;
+		for (i  =0; i < NIDS_PER_BLOCK; i++) {
+			struct hmfs_node* direct;
+			direct = get_node(sbi, le32_to_cpu(indirect[t]->nid[i]));
+			if (ERR_PTR(-ENODATA) == direct) 
+				goto NODATA;
+			err = hmfs_check_node(sbi, cp, inode, direct, ino);
+			if (0 != err) return err;
+			for (j = 0; j < ADDRS_PER_BLOCK; j++) {
+				block_t data_addr = le64_to_cpu(direct->i_addr[j]);
+				if (NULL_ADDR == data_addr)
+					goto NODATA;
+				++(*blk_cnt);
+				//TODO: data block checking
+			}
+		}
+	}
+	hmfs_print(1, "normal + direct + indirect data blocks: %d\n", *blk_cnt);
+
+	//double indirect
+	if (ERR_PTR(-ENODATA) == d_indirect)
+		goto NODATA;
+	err = hmfs_check_node(sbi, cp, inode, d_indirect, ino);
+	if (0 != err) return err;
+	for (t = 0; t < NIDS_PER_BLOCK; i++) {
+		struct hmfs_node* indirect;
+		indirect = get_node(sbi, le32_to_cpu(d_indirect->nid[t]));
+		if (ERR_PTR(-ENODATA) == indirect) 
+				goto NODATA;
+		err = hmfs_check_node(sbi, cp, inode, indirect, ino);
+		if (0 != err) return err;
+		for (i  =0; i < NIDS_PER_BLOCK; i++) {
+			struct hmfs_node* direct;
+			direct = get_node(sbi, le32_to_cpu(indirect->nid[i]));
+			if (ERR_PTR(-ENODATA) == direct) 
+				goto NODATA;
+			err = hmfs_check_node(sbi, cp, inode, direct, ino);
+			if (0 != err) return err;
+			for (j = 0; j < ADDRS_PER_BLOCK; j++) {
+				block_t data_addr = le64_to_cpu(direct->i_addr[j]);
+				if (NULL_ADDR == data_addr)
+					goto NODATA;
+				++(*blk_cnt);
+				//TODO: data block checking
+			}
+		}
+	}
+
+
+NODATA:
+	//if (ERR_PTR(-ENODATA) != direct[0]) goto NODE_ERR;
+	//if (ERR_PTR(-ENODATA) != direct[1]) goto NODE_ERR;
+	//if (ERR_PTR(-ENODATA) != indirect[0]) goto NODE_ERR;
+	//if (ERR_PTR(-ENODATA) != indirect[1]) goto NODE_ERR;
+	//if (ERR_PTR(-ENODATA) != d_indirect) goto NODE_ERR;
+	return err;
+NODE_ERR:
+	hmfs_print(1, "**error** \n");
+	return -1;
+}
+
+static int hmfs_check_node(struct hmfs_sb_info* sbi,
+	struct hmfs_checkpoint* cp, struct hmfs_inode* inode, 
+	struct hmfs_node* node, uint64_t ino)
+{
+	struct node_footer* footer;
+	uint32_t nid, ino, cp_ver;
+	struct hmfs_node* retieved_node;
+	footer = node->footer;
+	node_nid = le32_to_cpu(footer->nid);
+	node_ino = le32_to_cpu(footer->ino);
+	node_cp_ver = le32_to_cpu(footer->cp_ver);
+
+	//TODO: check nid ?
+
+	//check ino
+	if (node_ino != ino) {
+		hmfs_print(1, "**error** inode number doesn't match: ");
+		hmfs_print(1, "node->footer->ino = %d != %d\n", node_ino, ino);
+		return -1;
+	}
+
+	//check cp_ver
+	if (node_cp_ver != le32_to_cpu(cp->checkpoint_ver)) {
+		hmfs_print(1, "**error** node version doesn't match: ");
+		hmfs_print(1, "**error** node->footer->version = %d != %d\n", 
+			node_cp_ver, le32_to_cpu(cp->checkpoint_ver));
+	}
+}
+
 static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr, 
-			  block_t blk_addr, size_t h, size_t offset, block_t nid)
+			  block_t blk_addr, size_t h, size_t offset, block_t nid, int sum_type)
 {
 	uint cp_ver, dead_ver, start_ver;
 	struct hmfs_checkpoint* cp;
@@ -525,11 +722,18 @@ static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr,
 	cp = (struct hmfs_checkpoint*)ADDR(sbi, cp_addr);
 	summary = get_summary_by_addr(sbi, blk_addr);
 
+
+	//check count
+	if (0 == get_summary_count(summary)) {
+		hmfs_print(1, "**error** summary count error: ");
+		hmfs_print(1, "count of node at %#x shouldn't be zero\n", blk_addr);
+		ret_val = -1;
+	}
+
 	//check summary type
-	if ( (0 != h && SUM_TYPE_NATN != get_summary_type(summary))
-		|| (0 == h && SUM_TYPE_NATD != get_summary_type(summary)) ) {
+	if ( sum_type != get_summary_type(summary)) {
 		hmfs_print(1, "**error** summary type error: ");
-		hmfs_print(1, "type of nat node at %#x should be %d, but get %d \n", 
+		hmfs_print(1, "type of node at %#x should be %d, but get %d \n", 
 			blk_addr, h ? SUM_TYPE_NATN : SUM_TYPE_NATD, get_summary_type(summary));
 		ret_val = -1;
 	}
@@ -540,19 +744,19 @@ static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr,
 		raw_nid = (get_summary_nid(summary) & 0x7ffffff); 
 		if (offset != get_summary_offset(summary)) {
 			hmfs_print(1, "**error** summary offset error: ");
-			hmfs_print(1, "offset nat node at %#x should be %d, but get %d \n", 
+			hmfs_print(1, "offset node at %#x should be %d, but get %d \n", 
 				blk_addr, offset, get_summary_offset(summary));
 			ret_val = -1;
 		}
 		if (h+1 != raw_height){
 			hmfs_print(1, "**error** summary height error: ");
-			hmfs_print(1, "offset nat node at %#x should be %d, but get %llu \n", 
+			hmfs_print(1, "offset node at %#x should be %d, but get %llu \n", 
 				blk_addr, h+1, raw_height);
 			ret_val = -1;
 		}
 		if (nid != raw_nid){
 			hmfs_print(1, "**error** summary block order error: ");
-			hmfs_print(1, "offset nat node at %#x should be %d, but get %llu \n", 
+			hmfs_print(1, "offset node at %#x should be %d, but get %llu \n", 
 				blk_addr, h, raw_nid);
 			ret_val = -1;
 		}
@@ -564,7 +768,7 @@ static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr,
 	start_ver = le32_to_cpu(summary->start_version);
 	if ( (0 != dead_ver && cp_ver >= dead_ver) || cp_ver < start_ver) {
 		hmfs_print(1, "**error** summary version error: ");
-		hmfs_print(1, "version of nat node at %#x, ");
+		hmfs_print(1, "version of nat node at %#x, ", blk_addr);
 		if (cp_ver >= dead_ver) {
 			hmfs_print(1, "checkpoint version(%d) >= dead version(%d)\n", 
 				cp_ver, dead_ver);
@@ -584,15 +788,11 @@ static int traverse_nat(struct hmfs_sb_info *sbi, block_t cp_addr,
 	int err = 0;
 	size_t i;
 	struct hmfs_nat_node* root;
-
 	size_t offset = nid >> (h * LOG2_NAT_ADDRS_PER_NODE);
 
 	if (!root_addr)
 		return 0;
-	hmfs_print(1, "sbi->nat_height: %d\n", sbi->nat_height);
-	hmfs_print(1, "nat root address: %p, height: %d, offset: %d\n", root_addr, h, offset);
-
-	err = hmfs_check_ssa(sbi, cp_addr, root_addr, h, offset, nid);
+	err = hmfs_check_ssa(sbi, cp_addr, root_addr, h, offset, nid, 0 != h ? SUM_TYPE_NATN : SUM_TYPE_NATD);
 	if (0 != err){
 		hmfs_print(1, "\n----- ERROR BLK INFO -----\n");
 		print_ssa_one(sbi, root_addr);
@@ -602,13 +802,22 @@ static int traverse_nat(struct hmfs_sb_info *sbi, block_t cp_addr,
 
 	if (0 == h) { //get the nat entry
 		//TODO: make node summary check
+		struct hmfs_nat_block* nat_block;
+		nat_block = (struct_nat_block*)ADDR(sbi, root_addr);
+		for (i = 0; i < NAT_ENTRY_PER_BLOCK; i++) {
+			struct hmfs_nat_entry* entry = &(nat_block->entries[i]);
+			if (NULL_ADDR == le64_to_cpu(entry->block_addr))
+				break;
+			err = hmfs_check_inode(cp_addr, 
+					le64_to_cpu(entry->block_addr), 
+					le32_to_cpu(entry->ino));
+		}
 		return err;
 	}
 
 	root = (struct hmfs_nat_node*)ADDR(sbi, root_addr);
 	for (i = 0; i < NAT_ADDR_PER_NODE; i++) {
 		block_t child_addr = le64_to_cpu(root->addr[i]);
-		hmfs_print(1, ">>>>>>>>>>> %p -> %p, height is %d\n", root_addr, child_addr, h);
 		err = traverse_nat(sbi, cp_addr, child_addr, h - 1, 
 				   nid + (i << ((h-1) * LOG2_NAT_ADDRS_PER_NODE)));
 		if (0 != err)	//stop if found error
@@ -634,7 +843,7 @@ static int hmfs_consis(void)
 
 
 	//check summary
-	hmfs_print(1, "======= check summary ======\n");
+	hmfs_print(1, "======= check summary =======\n");
 	cp_head_addr = le64_to_cpu(sb->cp_page_addr);
 	cp_head_addr = le64_to_cpu(((struct hmfs_checkpoint*)ADDR(sbi, cp_head_addr))->prev_cp_addr);
 	for (cp_addr = cp_head_addr; ;) {
