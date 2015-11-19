@@ -376,6 +376,7 @@ static void init_free_segmap(struct hmfs_sb_info *sbi)
 
 static void init_dirty_segmap(struct hmfs_sb_info *sbi)
 {
+	size_t i;
 	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	struct curseg_info *curseg_t = CURSEG_I(sbi);
