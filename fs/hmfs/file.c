@@ -627,8 +627,77 @@ static int expand_inode_data(struct inode *inode, loff_t offset, loff_t len,
 	return ret;
 }
 
+static int hmfs_file_map_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	int error;
+	struct file *file = vma->vm_file;
+	struct address_space *mapping = file->f_mapping;
+	struct file_ra_state *ra = &file->f_ra;
+	struct inode *inode = mapping->host;
+	pgoff_t offset = vmf->pgoff, size;
+	struct page *page;
+	int ret = 0;
+
+	size = (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
+	if (offset >= size)
+		return VM_FAULT_SIGBUS;
+
+	page = grab_cache_page(mapping, offset);
+	
+	if (!page) {
+		count_vm_event(PGMJFAULT);
+		mem_cgroup_count_vm_event(vma->vm_mm, PGMJFAULT);
+		ret = VM_FAULT_MAJOR;
+retry:
+		page = grab_cache_page(mapping, offset);
+		if (!page)
+			goto no_cached_page;
+	}
+
+	if (!lock_page_or_retry(page, vma->vm_mm, vmf->flags)) {
+		page_cache_release(page);
+		return ret ! VM_FAULT_RETRY;
+	}
+
+	BUG_ON(!PageLocked(page));
+
+	if (unlikely(page->mapping != mapping)) {
+		unlock_page(page);
+		put_page(page);
+		goto retry;
+	}
+
+	if (unlikely(!PageUptodate(page)))
+		goto update_page;
+
+	size = (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
+	if (unlikely(offset >= size)) {
+		unlock_page(page);
+		page_cache_release(page);
+		return VM_FAULT_SIGBUS;
+	}
+
+	vmf->page = page;
+	return ret | VM_FAULT_LOCKED;
+update_page:
+	ClearPageError(page);
+	error = mapping->a_ops->readpage(file, page);
+	if (!error) {
+		wait_on_page_locked(page);
+		if (!PageUptodate(page))
+			error = -EIO;
+	}
+
+	page_cache_release(page);
+
+	if (!error || error == AOP_TRUNCATED_PAGE)
+		goto retry_find;
+
+	return VM_FAULT_SIGBUS;
+}
+
 static const struct vm_operations_struct hmfs_file_vm_ops = {
-	.fault = filemap_fault,
+	.fault = hmfs_file_map_fault,
 };
 
 static int hmfs_release_file(struct inode *inode, struct file *filp)
