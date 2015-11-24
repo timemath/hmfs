@@ -480,6 +480,8 @@ static void hmfs_dirty_inode(struct inode *inode, int flags)
 	list_add_tail(&hi->list, &sbi->dirty_inodes_list);
 }
 
+//TODO:If we delete a dentry from dir block, and make checkpoint later?
+//and evict inode, how to deal with dead_ver
 static void hmfs_evict_inode(struct inode *inode)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
@@ -504,6 +506,8 @@ static void hmfs_evict_inode(struct inode *inode)
 	set_inode_flag(HMFS_I(inode), FI_NO_ALLOC);
 	i_size_write(inode, 0);
 
+	//TODO: compatible with mmap
+	
 	if (inode->i_blocks > 0)
 		hmfs_truncate(inode);
 
@@ -523,6 +527,27 @@ out:
 	clear_inode(inode);
 }
 
+static int init_mmap_zero_page(struct hmfs_sb_info *sbi)
+{
+	sbi->mmap_zero_page = alloc_page((GFP_KERNEL | __GFP_ZERO));
+
+	if (!sbi->mmap_zero_page)
+		return -ENOMEM;
+	lock_page(sbi->mmap_zero_page);
+
+	sbi->mmap_page_addr = kmap(sbi->mmap_zero_page);
+	sbi->mmap_page_pfn = page_to_pfn(sbi->mmap_zero_page);
+}
+
+static void destroy_mmap_zero_page(struct hmfs_sb_info *sbi)
+{
+	hmfs_bug_on(sbi, !PageLocked(sbi->mmap_zero_page));
+	unlock_page(sbi->mmap_zero_page);
+	kunmap(sbi->mmap_zero_page);
+	__free_page(sbi->mmap_zero_page);
+	sbi->mmap_zero_page = NULL;
+}
+
 static void hmfs_put_super(struct super_block *sb)
 {
 	struct hmfs_sb_info *sbi = HMFS_SB(sb);
@@ -534,6 +559,7 @@ static void hmfs_put_super(struct super_block *sb)
 		mutex_unlock(&sbi->gc_mutex);
 	}
 
+	destroy_mmap_zero_page(sbi);
 	hmfs_destroy_stats(sbi);
 	stop_gc_thread(sbi);
 	destroy_segment_manager(sbi);
@@ -750,6 +776,10 @@ static int hmfs_fill_super(struct super_block *sb, void *data, int slient)
 	}
 	/* create debugfs */
 	hmfs_build_stats(sbi);
+
+	retval = init_mmap_zero_page(sbi);
+	if (retval)
+		goto free_root_inode;
 
 	return 0;
 free_root_inode:

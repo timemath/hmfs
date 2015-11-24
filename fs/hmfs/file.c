@@ -627,77 +627,78 @@ static int expand_inode_data(struct inode *inode, loff_t offset, loff_t len,
 	return ret;
 }
 
+static int hmfs_get_mmap_page(struct inode *inode, pgoff_t index, unsigned long *pfn,
+				int vm_type)
+{
+	int err;
+	void *data_blk[1];
+	int nr_blk;
+	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
+	block_t data_blk_addr;
+
+	if (vm_type & VM_WRITE) {
+		data_blk[0] = alloc_new_data_block(inode, index);
+		if (IS_ERR(data_blk)) {
+			return PTR_ERR(data_blk);
+		}
+	} else {
+		hmfs_bug_on(sbi, !(vm_type & VM_READ));
+		err = get_data_block(inode, index, index + 1, data_blk,
+						&nr_blk, RA_DB_END);
+		if (size < 1)
+			return err;
+		/* There is a hole in file */
+		if (!data_blk[0]) {
+			*pfn = sbi->mmap_page_pfn;
+			goto out;
+		}
+	}
+
+	data_blk_addr = L_ADDR(sbi, data_blk);
+	*pfn = (sbi->phys_addr + data_blk_addr) >> PAGE_SHIFT;
+
+out:
+	return 0;
+}
+
+static void hmfs_file_map_close(struct vm_area_struct *vma)
+{
+	struct inode *inode = vma->vm_file->f_mapping->host;
+	
+	dec_vma_count(inode, vma);
+}
+
 static int hmfs_file_map_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	int error;
-	struct file *file = vma->vm_file;
-	struct address_space *mapping = file->f_mapping;
-	struct file_ra_state *ra = &file->f_ra;
+	struct address_space *mapping = vma->vm_file->f_mapping;
 	struct inode *inode = mapping->host;
 	pgoff_t offset = vmf->pgoff, size;
-	struct page *page;
-	int ret = 0;
+	unsigned long pfn;
+	int err = 0;
 
 	size = (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
 	if (offset >= size)
 		return VM_FAULT_SIGBUS;
 
-	page = grab_cache_page(mapping, offset);
-	
-	if (!page) {
-		count_vm_event(PGMJFAULT);
-		mem_cgroup_count_vm_event(vma->vm_mm, PGMJFAULT);
-		ret = VM_FAULT_MAJOR;
-retry:
-		page = grab_cache_page(mapping, offset);
-		if (!page)
-			goto no_cached_page;
-	}
-
-	if (!lock_page_or_retry(page, vma->vm_mm, vmf->flags)) {
-		page_cache_release(page);
-		return ret ! VM_FAULT_RETRY;
-	}
-
-	BUG_ON(!PageLocked(page));
-
-	if (unlikely(page->mapping != mapping)) {
-		unlock_page(page);
-		put_page(page);
-		goto retry;
-	}
-
-	if (unlikely(!PageUptodate(page)))
-		goto update_page;
-
-	size = (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
-	if (unlikely(offset >= size)) {
-		unlock_page(page);
-		page_cache_release(page);
+	err = hmfs_get_mmap_page(inode,offset, &pfn, vma->vm_flags);
+	if (unlikely(err)) 
 		return VM_FAULT_SIGBUS;
-	}
 
-	vmf->page = page;
-	return ret | VM_FAULT_LOCKED;
-update_page:
-	ClearPageError(page);
-	error = mapping->a_ops->readpage(file, page);
-	if (!error) {
-		wait_on_page_locked(page);
-		if (!PageUptodate(page))
-			error = -EIO;
-	}
+	err = vm_insert_mixed(vma, (unsigned lng)vmf->virtual_address, xip_pfn);
 
-	page_cache_release(page);
+	if (err = -ENOMEM)
+		return VM_FAULT_SIGBUS;
 
-	if (!error || error == AOP_TRUNCATED_PAGE)
-		goto retry_find;
+	if (err != -EBUSY)
+		hmfs_bug_on(HMFS_I_SB(inode), err);
 
+	inc_vma_count(inode, vma);
 	return VM_FAULT_SIGBUS;
 }
 
 static const struct vm_operations_struct hmfs_file_vm_ops = {
 	.fault = hmfs_file_map_fault,
+	.close = hmfs_file_map_close,
 };
 
 static int hmfs_release_file(struct inode *inode, struct file *filp)
@@ -705,8 +706,6 @@ static int hmfs_release_file(struct inode *inode, struct file *filp)
 	int ret = 0;
 	struct hmfs_inode_info *fi = HMFS_I(inode);
 
-	filemap_fdatawrite(inode->i_mapping);
-	
 	if (is_inode_flag_set(fi, FI_DIRTY_INODE))
 		ret = sync_hmfs_inode(inode);
 	else if (is_inode_flag_set(fi, FI_DIRTY_SIZE))
@@ -718,7 +717,9 @@ static int hmfs_release_file(struct inode *inode, struct file *filp)
 static int hmfs_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	file_accessed(file);
+	vma->vm_flags |= VM_MIXEDMAP;
 	vma->vm_ops = &hmfs_file_vm_ops;
+
 	return 0;
 }
 
@@ -731,10 +732,6 @@ int hmfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	if (hmfs_readonly(inode->i_sb))
 		return 0;
 
-	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
-	if (ret) 
-		return ret;
-	
 	mutex_lock(&inode->i_mutex);
 
 	/* We don't need to sync data pages */

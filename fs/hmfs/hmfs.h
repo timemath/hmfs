@@ -215,6 +215,10 @@ struct hmfs_sb_info {
 	/* Other */
 	struct list_head dirty_map_inodes;			/* Inodes which contains dirty DRAM page */
 	spinlock_t dirty_map_inodes_lock;			/* Lock of dirty map inodes list */
+	struct page *mmap_zero_page;				/* mmap page for hole in file */
+	unsigned long mmap_page_pfn;				/* pfn for mmap_zero_page */
+	void *mmap_page_addr;						/* Virtual address of mmap_zero_page */
+
 
 	int por_doing;								/* recovery is doing or not */
 	struct list_head dirty_inodes_list;			/* dirty inodes marked by VFS */
@@ -230,6 +234,7 @@ struct hmfs_inode_info {
 	unsigned long flags;				/* use to pass per-file flags */
 	nid_t i_pino;						/* parent inode number */
 	atomic_t nr_dirty_map_pages;
+	atomic_t nr_vma;				/* number of mmap area of this inode */
 	struct list_head list;
 	struct rw_semaphore i_sem;
 };
@@ -548,6 +553,17 @@ static inline int hmfs_clear_bit(unsigned int nr, char *addr)
 	ret = mask & *addr;
 	*addr &= ~mask;
 	return ret;
+}
+
+static inline void inc_vma_count(struct inode *inode, struct vm_area_struct *vma) {
+	atomic_inc(&HMFS_I(inode)->nr_vma);
+	hmfs_bug_on(HMFS_I_SB(inode), vma->vm_private_data);
+	vma->vm_private_data = (void *)inode->i_ino;
+}
+
+static inline void dec_vma_count(struct inode *inode, struct vm_area_struct *vma) {
+	atomic_dec(&HMFS_I(inode)->nr_vma);
+	hmfs_bug_on(HMFS_I_SB(inode), inode->i_ino != (unsigned long)vma->vm_private_data);
 }
 
 static inline void inc_dirty_map_pages_count(struct hmfs_sb_info *sbi)
