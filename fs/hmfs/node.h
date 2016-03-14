@@ -1,5 +1,5 @@
-#ifndef NODE_H
-#define NODE_H
+#ifndef HMFS_NODE_H
+#define HMFS_NODE_H
 
 #include "hmfs.h"
 #include "hmfs_fs.h"
@@ -14,13 +14,20 @@
 
 #define GET_NAT_NODE_HEIGHT(nid)		((nid) >> NAT_NODE_OFS_BITS)
 #define GET_NAT_NODE_OFS(nid)			((nid) & NAT_NODE_OFS_MASK)
-#define MAKE_NAT_NODE_NID(height, ofs)	(((height) << NAT_NODE_OFS_BITS) | ((ofs) & NAT_NODE_OFS_MASK))
+#define MAKE_NAT_NODE_NID(height, ofs)	(((height) << NAT_NODE_OFS_BITS) |\
+				((ofs) & NAT_NODE_OFS_MASK))
+
+#define NAT_FLAG_FREE_NID			0x01
+#define NAT_FLAG_JOURNAL			0x02
+
+/* vector size for gang look-up from nat cache that consist of radix tree */
+#define NATVEC_SIZE					64
 
 struct node_info {
 	nid_t nid;
 	nid_t ino;
 	block_t blk_addr;
-	ver_t version;
+	char flag;
 };
 
 struct nat_entry {
@@ -35,8 +42,9 @@ struct free_nid {
 /*
  * ?????
  */
-#define make_free_nid(nid,free)		((nid) | (((u32)free) << 31))
+#define make_free_nid(nid, free)		((nid) | (((u32)free) << 31))
 #define get_free_nid(nid)			(((nid) << 1) >> 1)
+#define is_dirty_free_nid(nid)		(nid >> 31)
 
 static inline void node_info_to_raw_nat(struct node_info *ni,
 					struct hmfs_nat_entry *ne)
@@ -66,6 +74,15 @@ static inline void set_nid(struct hmfs_node *hn, int off, nid_t nid, bool in_i)
 		hn->i.i_nid[off - NODE_DIR1_BLOCK] = cpu_to_le32(nid);
 	else
 		hn->in.nid[off] = cpu_to_le32(nid);
+}
+
+static inline bool is_checkpoint_node(char sum_type)
+{
+	BUG_ON(sum_type >= SUM_TYPE_NATN && sum_type <= SUM_TYPE_CP &&
+			sum_type != SUM_TYPE_NATN && sum_type != SUM_TYPE_NATD 
+			&& sum_type != SUM_TYPE_CP);
+
+	return sum_type >= SUM_TYPE_NATN && sum_type <= SUM_TYPE_CP;
 }
 
 static inline char hmfs_get_nat_height(unsigned long long initsize)

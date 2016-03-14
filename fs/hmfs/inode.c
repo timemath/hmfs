@@ -25,6 +25,46 @@ void hmfs_set_inode_flags(struct inode *inode)
 		inode->i_flags |= S_DIRSYNC;
 }
 
+int hmfs_convert_inline_inode(struct inode *inode)
+{
+	struct hmfs_inode *old_inode_block, *new_inode_block;
+	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
+	umode_t mode = inode->i_mode;
+	size_t i_size;
+	void *data_block;
+
+	if (S_ISDIR(mode)) {
+		i_size = HMFS_INLINE_SIZE;
+	} else {
+		i_size = i_size_read(inode);
+	}
+
+	hmfs_bug_on(sbi, !is_inline_inode(inode));
+	old_inode_block = get_node(sbi, inode->i_ino);
+	if (IS_ERR(old_inode_block))
+		return PTR_ERR(old_inode_block);
+	
+	set_inode_flag(HMFS_I(inode), FI_CONVERT_INLINE);
+	new_inode_block = alloc_new_node(sbi, inode->i_ino, inode, SUM_TYPE_INODE, false);
+	clear_inode_flag(HMFS_I(inode), FI_CONVERT_INLINE);
+	if (IS_ERR(new_inode_block))
+		return PTR_ERR(new_inode_block);
+
+	hmfs_bug_on(sbi, old_inode_block == new_inode_block);
+
+	/* Reinitialize i_addrs */
+	memset_nt(new_inode_block->i_addr, 0, sizeof(__le64) * 
+			NORMAL_ADDRS_PER_INODE + sizeof(__le32) * 5);
+	data_block = alloc_new_data_block(sbi, inode, 0);
+	hmfs_memcpy(data_block, old_inode_block->inline_content, 
+					i_size);
+	if (S_ISDIR(mode))
+		mark_size_dirty(inode,HMFS_PAGE_SIZE);
+
+	clear_inode_flag(HMFS_I(inode), FI_INLINE_DATA);
+	return 0;
+}
+
 static int do_read_inode(struct inode *inode)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
@@ -47,7 +87,6 @@ static int do_read_inode(struct inode *inode)
 	set_nlink(inode, le32_to_cpu(hi->i_links));
 	inode->i_size = le64_to_cpu(hi->i_size);
 	inode->i_blocks = le64_to_cpu(hi->i_blocks);
-	printk("%s-%d:%d\n",__FUNCTION__,__LINE__,inode->i_blocks);
 	inode->i_atime.tv_sec = le64_to_cpu(hi->i_atime);
 	inode->i_ctime.tv_sec = le64_to_cpu(hi->i_ctime);
 	inode->i_mtime.tv_sec = le64_to_cpu(hi->i_mtime);
@@ -59,6 +98,7 @@ static int do_read_inode(struct inode *inode)
 	fi->i_current_depth = le32_to_cpu(hi->i_current_depth);
 	fi->i_flags = le32_to_cpu(hi->i_flags);
 	fi->flags = 0;
+	fi->i_advise = hi->i_advise;
 	fi->i_pino = le32_to_cpu(hi->i_pino);
 	return 0;
 }
@@ -70,19 +110,21 @@ void mark_size_dirty(struct inode *inode, loff_t size)
 
 	i_size_write(inode, size);
 	set_inode_flag(hi, FI_DIRTY_SIZE);
+	spin_lock(&sbi->dirty_inodes_lock);
 	list_del(&hi->list);
 	INIT_LIST_HEAD(&hi->list);
 	list_add_tail(&hi->list, &sbi->dirty_inodes_list);
+	spin_unlock(&sbi->dirty_inodes_lock);
 }
 
-int sync_hmfs_inode_size(struct inode *inode)
+int sync_hmfs_inode_size(struct inode *inode, bool force)
 {
 	struct hmfs_inode_info *inode_i = HMFS_I(inode);
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
 	struct hmfs_node *hn;
 	struct hmfs_inode *hi;
 
-	hn = alloc_new_node(sbi, inode->i_ino, inode, SUM_TYPE_INODE);
+	hn = alloc_new_node(sbi, inode->i_ino, inode, SUM_TYPE_INODE, force);
 	if(IS_ERR(hn))
 		return PTR_ERR(hn);
 	hi = &hn->i;
@@ -91,13 +133,15 @@ int sync_hmfs_inode_size(struct inode *inode)
 
 	clear_inode_flag(inode_i, FI_DIRTY_SIZE);
 	if (!is_inode_flag_set(inode_i, FI_DIRTY_INODE)) {
+		spin_lock(&sbi->dirty_inodes_lock);
 		list_del(&inode_i->list);
+		spin_unlock(&sbi->dirty_inodes_lock);
 		INIT_LIST_HEAD(&inode_i->list);
 	}
 	return 0;
 }
 
-int sync_hmfs_inode(struct inode *inode)
+int sync_hmfs_inode(struct inode *inode, bool force)
 {
 	struct super_block *sb = inode->i_sb;
 	struct hmfs_sb_info *sbi = HMFS_SB(sb);
@@ -105,14 +149,16 @@ int sync_hmfs_inode(struct inode *inode)
 	struct hmfs_node *rn;
 	struct hmfs_inode *hi;
 
-	rn = alloc_new_node(sbi, inode->i_ino, inode, SUM_TYPE_INODE);
+	rn = alloc_new_node(sbi, inode->i_ino, inode, SUM_TYPE_INODE, force);
 	if (IS_ERR(rn))
 		return PTR_ERR(rn);
 	hi = &(rn->i);
 
 	clear_inode_flag(inode_i, FI_DIRTY_INODE);
 	clear_inode_flag(inode_i, FI_DIRTY_SIZE);
+	spin_lock(&sbi->dirty_inodes_lock);
 	list_del(&inode_i->list);
+	spin_unlock(&sbi->dirty_inodes_lock);
 	INIT_LIST_HEAD(&inode_i->list);
 	
 	hi->i_mode = cpu_to_le16(inode->i_mode);
@@ -130,6 +176,7 @@ int sync_hmfs_inode(struct inode *inode)
 	hi->i_current_depth = cpu_to_le32(inode_i->i_current_depth);
 	hi->i_flags = cpu_to_le32(inode_i->i_flags);
 	hi->i_pino = cpu_to_le32(inode_i->i_pino);
+	hi->i_advise = inode_i->i_advise;
 
 	return 0;
 }
@@ -156,16 +203,13 @@ struct inode *hmfs_iget(struct super_block *sb, unsigned long ino)
 	case S_IFREG:
 		inode->i_op = &hmfs_file_inode_operations;
 		inode->i_fop = &hmfs_file_operations;
-		inode->i_mapping->a_ops = &hmfs_dblock_aops;
 		break;
 	case S_IFDIR:
 		inode->i_op = &hmfs_dir_inode_operations;
 		inode->i_fop = &hmfs_dir_operations;
-		inode->i_mapping->a_ops = &hmfs_dblock_aops;
 		break;
 	case S_IFLNK:
 		inode->i_op = &hmfs_symlink_inode_operations;
-		inode->i_mapping->a_ops = &hmfs_dblock_aops;
 		break;
 	default:
 		inode->i_op = &hmfs_special_inode_operations;
@@ -177,3 +221,9 @@ bad_inode:
 	iget_failed(inode);
 	return ERR_PTR(ret);
 }
+
+//TODO
+const struct address_space_operations hmfs_aops_xip = {
+	.get_xip_mem = NULL,
+	.direct_IO = NULL,
+};
