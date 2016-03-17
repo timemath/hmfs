@@ -928,6 +928,7 @@ int hmfs_make_empty(struct inode *, struct inode *);
 bool hmfs_empty_dir(struct inode *);
 struct hmfs_dentry_block *get_dentry_block_for_write(struct inode *dir,
 				int old_bidx);
+int hmfs_inode_predict_size(struct inode *dir);
 
 /* symlink.c */
 int hmfs_symlink(struct inode *inode, struct dentry *, const char *symname);
