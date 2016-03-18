@@ -803,7 +803,7 @@ static int hmfs_readdir(struct file *file, struct dir_context *ctx)
 			NR_DENTRY_IN_INLINE_INODE;
 	unsigned int n = ((unsigned long)ctx->pos / nr_dentry_in_block);
 
-	printk(KERN_INFO "[P]Predict from hmfs_readdir()\n");
+	printk(KERN_INFO "\n##### Predict from hmfs_readdir() #####\n");
 	hmfs_inode_predict_size(inode);
 	buf = vzalloc(HMFS_PAGE_SIZE);
 
@@ -863,31 +863,21 @@ static inline int hmfs_cal_firstnonzero(unsigned long number)
 	return time_bit;
 }
 
-/* Version 1 */
+/* Version 0 */
 int hmfs_inode_predict_size(struct inode *dir)
 {
-	sync_hmfs_inode(dir,1);	
-	struct hmfs_sb_info *sbi = HMFS_I_SB(dir);
-	struct hmfs_inode *current_dir = get_node(sbi,dir->i_ino);
-	/* 1. Find the time for oldest directory version */
-	struct hmfs_summary *sum = get_summary_by_addr(sbi, L_ADDR(sbi, current_dir));
-	//hmfs_dbg("[P]%d\n",L_ADDR(sbi, current_dir));
-	unsigned int old_version = le32_to_cpu(sum->start_version);
-	unsigned int nid_dir = le32_to_cpu(sum->nid);
-	printk(KERN_INFO "[P]Start prediction: nid=%d version=%d\n",nid_dir,old_version);
-	unsigned long start_time = get_seconds()-300;
-	/* FIXME: find TRUE oldest dir */
-	/*
-	struct hmfs_nat_entry *old_nat_entry = get_nat_entry(sbi, old_version, nid_dir);
+	struct hmfs_sb_info *sbi;
+	struct hmfs_inode *current_dir;
+	struct hmfs_summary *sum;
+	unsigned int old_version;
+	unsigned int nid_dir;
+	unsigned long start_time;
+	struct hmfs_nat_entry *old_nat_entry;
+	struct hmfs_checkpoint *old_cp;
+	unsigned int oldest_version;
+	struct hmfs_nat_entry *this_nat_entry;
 	struct hmfs_inode *old_dir;
-	if (old_nat_entry!=NULL){
-		old_dir = old_nat_entry->block_addr;
-		start_time = le64_to_cpu(old_dir->i_mtime);
-	}
-	*/
-	/* 2. Find current time */
-	unsigned long current_time = get_seconds(); 
-	/* 3. Calculate the time (weight) for each inode in it */
+	unsigned long current_time;
 	struct hmfs_dentry_block *dentry_blk;
 	struct hmfs_dir_entry *dentry;
 	int dentry_ino;
@@ -904,11 +894,49 @@ int hmfs_inode_predict_size(struct inode *dir)
 	int err = 0;
 	int prediction = 0;
 	unsigned long bidx;
-	unsigned long nblock = dir_blocks(dir);
+	unsigned long nblock;
+	int time_bit = 0;
+
+	sbi = HMFS_I_SB(dir);
+	hmfs_sync_fs(sbi->sb,1);
+	current_dir = get_node(sbi,dir->i_ino);
+	/* 1. Find the time for oldest directory version */
+	sum = get_summary_by_addr(sbi, L_ADDR(sbi, current_dir));
+	//hmfs_dbg("[P]%d\n",L_ADDR(sbi, current_dir));
+	old_version = le32_to_cpu(sum->start_version);
+	nid_dir = le32_to_cpu(sum->nid);
+	printk(KERN_INFO "[P]Start prediction: nid=%d,version=%d\n",nid_dir,old_version);
+	start_time = get_seconds()-300;
+	
+	old_cp = ADDR(sbi,sbi->cm_info->last_cp_i->cp->next_cp_addr);
+	//printk(KERN_INFO "[P]version=%d\n",old_cp);
+	oldest_version = old_cp->checkpoint_ver;
+	//printk(KERN_INFO "[P]version=%d\n",oldest_version);
+	this_nat_entry = get_nat_entry(sbi, old_version, nid_dir);
+	/* I failed to acquire the last version of dir, so I just use the time of the last version of 3 (root) instead. There might be some problem when the last version is deleted and some of its files are used for prediction. */
+
+	old_nat_entry = get_nat_entry(sbi, oldest_version,3);
+
+	if (old_nat_entry!=NULL){
+		old_dir = ADDR(sbi,old_nat_entry->block_addr);
+		start_time = old_dir->i_mtime;
+	}
+
+	/* 2. Find current time */
+	current_time = get_seconds();
+	
+	if (this_nat_entry!=NULL){
+		old_dir = ADDR(sbi,this_nat_entry->block_addr);
+		current_time = old_dir->i_mtime;
+	}
+	/* 3. Calculate the time (weight) for each inode in it */
+	nblock = dir_blocks(dir);	
 	buf = vzalloc(HMFS_PAGE_SIZE);
 	if (!buf)
 		return -ENOMEM;
-	int time_bit = hmfs_cal_firstnonzero(current_time-start_time);
+	//printk(KERN_INFO "[P]time c:%lx,s:%lx\n",current_time,start_time);
+	time_bit = hmfs_cal_firstnonzero(current_time-start_time);
+	//printk(KERN_INFO "[P]bit:%d",time_bit);
 	//inode_read_lock(current_dir);
 	if (is_inline_inode(dir)){
 	printk(KERN_INFO "[P]Inline directory\n");
@@ -932,16 +960,16 @@ int hmfs_inode_predict_size(struct inode *dir)
 			return PTR_ERR(hn);
 		hi = &hn->i;
 		this_weight = time_bit - hmfs_cal_firstnonzero( current_time - hi->i_mtime );
-		printk(KERN_INFO "[P]Entry inserted: ino:%d\t size:%d\t weight:%d\n",dentry_ino,hi->i_size,this_weight);
+		printk(KERN_INFO "[P]Entry inserted: ino:%d\t size:%llu\t weight:%ld\n",dentry_ino,hi->i_size,this_weight);
 		weight = weight + this_weight;
 		sweight = sweight + hi->i_size * this_weight;
 		}
 	//	inode_read_unlock(dir);
 		prediction = hmfs_cal_firstnonzero(sweight)-hmfs_cal_firstnonzero(weight);
-		printk(KERN_INFO "[P]End prediction with %d ( sw=%d, w=%d )\n",prediction,sweight,weight);
+		printk(KERN_INFO "[P]End prediction with %d ( sw=%ld, w=%ld )\n",prediction,sweight,weight);
 		return prediction;
 	}
-	printk(KERN_INFO "[P]Not Inline\n");
+	printk(KERN_INFO "[P]Not Inline Dir  \tino\tsize\tpred\tweight\n");
 	for (bidx=0;bidx<nblock;bidx++)
 	{		
 		if (pos < 0 || pos == size) {
@@ -963,25 +991,27 @@ int hmfs_inode_predict_size(struct inode *dir)
 		dentry = &dentry_blk->dentry[bit_pos];
 		dentry_ino = dentry->ino;
 		if ( dentry->file_type > HMFS_FT_REG_FILE){
-			printk(KERN_INFO "[P]Entry ignored: ino:%d\n",dentry_ino);
+			printk(KERN_INFO "[P]Entry ignored:  \t%d\n",dentry_ino);
 			continue;
 		}
 		/* collect its info*/
 		hn = (struct hmfs_node *)get_node(sbi, dentry_ino);
 		if (IS_ERR(hn)){
-			printk(KERN_INFO "[P]Entry Missed: ino:%d\n",dentry_ino);
+			printk(KERN_INFO "[P]Entry Missed:   \t%d\n",dentry_ino);
 			continue;
 		}
 		hi = &hn->i;
 		this_weight = time_bit - hmfs_cal_firstnonzero( current_time - hi->i_mtime );
-		printk(KERN_INFO "[P]Entry inserted: ino:%d\t size:%d\t pred:%d\t weight:%d\n",dentry_ino,hi->i_size,hmfs_cal_firstnonzero(hi->i_size),this_weight);
-		weight = weight + this_weight;
-		sweight = sweight + hi->i_size * this_weight;
+		if (this_weight<=0)
+				this_weight=1;
+		printk(KERN_INFO "[P]Entry inserted: \t%d\t%llu\t%d\t%ld\n",dentry_ino,hi->i_size,hmfs_cal_firstnonzero(hi->i_size),this_weight*this_weight);
+		weight = weight + this_weight * this_weight;
+		sweight = sweight + hi->i_size * this_weight * this_weight;
 		}
 	}
 	//inode_read_unlock(dir);
 	prediction = hmfs_cal_firstnonzero(sweight)-hmfs_cal_firstnonzero(weight);
-	printk(KERN_INFO "[P]End prediction with %d ( sw=%d, w=%d )\n",prediction,sweight,weight);
+	printk(KERN_INFO "##### End prediction with %d ( sw=%ld, w=%ld ) #####\n",prediction,sweight,weight);
 	return prediction;
 }
 
