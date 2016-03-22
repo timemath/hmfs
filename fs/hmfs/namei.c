@@ -23,11 +23,19 @@ static bool hmfs_may_set_inline_data(struct inode *dir)
 
 static int calculate_data_block_type(struct inode *dir, struct inode *inode)
 {
+	int pred=0;
+	int i;
 	if (!S_ISREG(inode->i_mode))
 		return SEG_DATA_INDEX;
-
+	//printk(KERN_INFO "\n##### Predict from cal_block_type() #####\n");
+	pred = hmfs_inode_predict_size(dir,false);
 	/* Do calculation */
-	return SEG_DATA_INDEX + (inode->i_ino % (HMFS_I_SB(inode)->nr_page_types - 1));
+	i=(HMFS_I_SB(dir))->nr_page_types;
+	while ( HMFS_BLOCK_SIZE_BITS(i) >= pred ){
+		i--;
+	}
+	return SEG_DATA_INDEX + i;
+	//return SEG_DATA_INDEX + (inode->i_ino % (HMFS_I_SB(inode)->nr_page_types - 1));
 }
 
 static struct inode *hmfs_new_inode(struct inode *dir, umode_t mode)
@@ -65,7 +73,7 @@ static struct inode *hmfs_new_inode(struct inode *dir, umode_t mode)
 	inode->i_blocks = 0;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	i_info->i_blk_type = calculate_data_block_type(dir, inode);
-
+	printk(KERN_INFO "[N]New file with type:    %d\n",9+3*i_info->i_blk_type);
 	if (S_ISDIR(mode)) {
 		set_inode_flag(HMFS_I(inode), FI_INC_LINK);
 		inode->i_size = HMFS_BLOCK_SIZE[i_info->i_blk_type];
