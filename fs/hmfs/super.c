@@ -66,7 +66,7 @@ static const match_table_t tokens = {
  */
  /**
   * 将NVM物理地址@phys_addr 建立到内核虚拟空间大小为@size的映射，并返回映射的初始地址
-  * /
+  */
 static inline void *hmfs_ioremap(struct super_block *sb, phys_addr_t phys_addr,
 				ssize_t size)
 {
@@ -76,7 +76,7 @@ static inline void *hmfs_ioremap(struct super_block *sb, phys_addr_t phys_addr,
 }
  /**
   * 解除虚拟地址@virt_addr的物理地址映射
-  * /
+  */
 static inline int hmfs_iounmap(void *virt_addr)
 {
 	iounmap((void __iomem __force *)virt_addr);
@@ -91,7 +91,7 @@ static inline int hmfs_iounmap(void *virt_addr)
  */
   /**
   * 解析并执行挂载时输入的相关数据@option
-  * /
+  */
 static int hmfs_parse_options(char *options, struct hmfs_sb_info *sbi,
 				bool remount)
 {
@@ -240,7 +240,7 @@ bad_opt:
 
  /**
   *以@sb为文件系统起始地址，格式化NVM介质，初始文件系统元数据
-  * /
+  */
   
 static int hmfs_format(struct super_block *sb)
 {
@@ -478,7 +478,7 @@ static int hmfs_format(struct super_block *sb)
 
  /**
   * 验证@start_addr地址处的SB是否有效，返回有效SB地址，同时处理无效SB
-  * /
+  */
 static struct hmfs_super_block *get_valid_super_block(void *start_addr)
 {
 	struct hmfs_super_block *super_1, *super_2;
@@ -516,7 +516,7 @@ static struct hmfs_super_block *get_valid_super_block(void *start_addr)
  */
   /**
   * 初始化（分配）@foo指针所指的hmfs_inode的vfs inode部分
-  * /
+  */
 static void init_once(void *foo)
 {
 	struct hmfs_inode_info *fi = (struct hmfs_inode_info *)foo;
@@ -526,7 +526,7 @@ static void init_once(void *foo)
 
  /**
   * 从超级块@sb中分配一个新的hmfs_inode,返回其vfs inode指针
-  * /
+  */
 static struct inode *hmfs_alloc_inode(struct super_block *sb)
 {
 	struct hmfs_inode_info *fi;
@@ -549,7 +549,7 @@ static struct inode *hmfs_alloc_inode(struct super_block *sb)
 
  /**
   * 释放hmfs_inode相应slab的回调函数
-  * /
+  */
 static void hmfs_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
@@ -565,7 +565,7 @@ static void hmfs_destroy_inode(struct inode *inode)
 }
  /**
   * 将inode写回存储介质
-  * /
+  */
 int __hmfs_write_inode(struct inode *inode, bool force)
 {
 	int err = 0, ilock;
@@ -589,7 +589,7 @@ int __hmfs_write_inode(struct inode *inode, bool force)
 }
  /**
   * 写回@inode
-  * /
+  */
 static int hmfs_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	if (inode->i_ino < HMFS_ROOT_INO)
@@ -603,7 +603,7 @@ static int hmfs_write_inode(struct inode *inode, struct writeback_control *wbc)
 }
  /**
   * 将@inode相应的hmfs_inode标记为DIRTY并加入DIRTY链表
-  * /
+  */
 static void hmfs_dirty_inode(struct inode *inode, int flags)
 {
 	struct hmfs_inode_info *hi = HMFS_I(inode);
@@ -619,7 +619,7 @@ static void hmfs_dirty_inode(struct inode *inode, int flags)
 
  /**
   * 从NVM删除@inode及相应文件(可能有误，有待进一步确认)
-  * /
+  */
 static void hmfs_evict_inode(struct inode *inode)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
@@ -663,7 +663,7 @@ out:
 }
  /**
   * 为@sbi生成全零页
-  * /
+  */
 static int init_map_zero_page(struct hmfs_sb_info *sbi)
 {
 	sbi->map_zero_page = alloc_page((GFP_KERNEL | __GFP_ZERO));
@@ -677,7 +677,7 @@ static int init_map_zero_page(struct hmfs_sb_info *sbi)
 
 /**
  * 删除@sbi相应的全零页
- * /
+ */
 static void destroy_map_zero_page(struct hmfs_sb_info *sbi)
 {
 	hmfs_bug_on(sbi, !PageLocked(sbi->map_zero_page));
@@ -688,7 +688,7 @@ static void destroy_map_zero_page(struct hmfs_sb_info *sbi)
 }
 /**
  * 从内存中删除文件系统相关信息
- * /
+ */
 
 static void hmfs_put_super(struct super_block *sb)
 {
@@ -714,7 +714,7 @@ static void hmfs_put_super(struct super_block *sb)
 }
 /**
  * 统计文件系统状态
- * /
+ */
 static int hmfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
 	struct hmfs_sb_info *sbi = HMFS_SB(dentry->d_sb);
@@ -738,7 +738,7 @@ static int hmfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 }
 /**
  * 写文件系统CP
- * /
+ */
 int hmfs_sync_fs(struct super_block *sb, int sync)
 {
 	struct hmfs_sb_info *sbi = HMFS_SB(sb);
@@ -758,7 +758,7 @@ int hmfs_sync_fs(struct super_block *sb, int sync)
 }
 /**
  * 写文件系统CP
- * /
+ */
 static int hmfs_freeze(struct super_block *sb)
 {
 	int err;
@@ -788,7 +788,7 @@ static struct super_operations hmfs_sops = {
 };
 /**
  * 由@sb生成super_block_info
- * /
+ */
 static int hmfs_fill_super(struct super_block *sb, void *data, int slient)
 {
 	struct inode *root = NULL;
@@ -968,7 +968,7 @@ out:
 }
 /**
  * hmfs挂载
- * /
+ */
 struct dentry *hmfs_mount(struct file_system_type *fs_type, int flags,
 			  const char *dev_name, void *data)
 {
@@ -989,7 +989,7 @@ struct file_system_type hmfs_fs_type = {
 #define DEVICE_TYPE "Hybrid in-Memory File System"
 /**
  * 创建hmfs_inode的slab
- * /
+ */
 static int __init init_inodecache(void)
 {
 	hmfs_inode_cachep = hmfs_kmem_cache_create("hmfs_inode_cache",
@@ -1000,7 +1000,7 @@ static int __init init_inodecache(void)
 }
 /**
  * 销毁hmfs_inode的slab
- * /
+ */
 static void destroy_inodecache(void)
 {
 	/*
@@ -1012,7 +1012,7 @@ static void destroy_inodecache(void)
 }
 /**
  * 测试文件系统元数据大小
- * /
+ */
 static void hmfs_check_struct_size(void)
 {
 	BUG_ON(sizeof(struct hmfs_super_block) > HMFS_PAGE_SIZE);
@@ -1027,7 +1027,7 @@ static void hmfs_check_struct_size(void)
 }
 /**
  * hmfs模块载入初始化
- * /
+ */
 int init_hmfs(void)
 {
 	int err;
@@ -1073,7 +1073,7 @@ fail:
 }
 /**
  *  hmfs模块退出函数
- * /
+ */
 void exit_hmfs(void)
 {
 	destroy_mmap_struct_cache();
