@@ -5,6 +5,7 @@
 #include "node.h"
 #include "segment.h"
 //Hello, this is Jin Weitong  金伟潼
+//once again
 static struct kmem_cache *nat_entry_slab;
 
 const struct address_space_operations hmfs_nat_aops;
