@@ -19,6 +19,10 @@
 /*
  * Hashing code copied from ext3
  */
+ 
+/*
+ * this is a test from me
+ */
 #define DELTA 0x9E3779B9
 
 static void TEA_transform(unsigned int buf[4], unsigned int const in[])
