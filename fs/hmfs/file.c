@@ -30,7 +30,9 @@
 #ifdef CONFIG_HMFS_FAST_READ
 static struct kmem_cache *ro_file_address_cachep;
 #endif
-
+/*
+ * 程威宇的注释
+ */
 static struct kmem_cache *mmap_block_slab;
 
 static unsigned int start_block(unsigned int i, int level)
