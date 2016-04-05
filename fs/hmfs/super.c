@@ -64,6 +64,10 @@ static const match_table_t tokens = {
 /*
  * ioremap & iounmap
  */
+ 
+/*
+ * 观superblock有感
+ */
 static inline void *hmfs_ioremap(struct super_block *sb, phys_addr_t phys_addr,
 				ssize_t size)
 {
