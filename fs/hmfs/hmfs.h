@@ -549,6 +549,7 @@ static inline void clear_inode_flag(struct hmfs_inode_info *fi, int flag)
 		clear_bit(flag, &fi->flags);
 }
 
+/*判断inode文件是否为内嵌数据*/
 static inline bool is_inline_inode(struct inode *inode)
 {
 	return is_inode_flag_set(HMFS_I(inode), FI_INLINE_DATA);

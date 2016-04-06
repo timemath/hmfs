@@ -108,6 +108,13 @@ unsigned int hmfs_dir_seek_data_reverse(struct inode *dir, unsigned int end_blk)
  * I think it's ok to seek hole or data but not to obtain a fs lock,
  * i.e. user could seek hole or data of file when fs is doing checkpoint
  */
+/*寻找文件中的非孔区域或孔区域的位置
+ *inode对应文件 end_blk为文件占用block数 start_pos为开始搜索的位置相对于文件开头的偏移量
+ *type为SEEK_HOLE时搜索孔位置
+ *type为SEEK_DATA时搜索非孔位置
+ *返回值为对应位置起始处相对于文件起始处的block偏移数
+ */
+
 static unsigned int hmfs_file_seek_hole_data(struct inode *inode, 
 				unsigned int end_blk, unsigned int start_pos, char type)
 {
@@ -514,6 +521,14 @@ static int hmfs_release_file(struct inode *inode, struct file *filp)
  * filesystems.  It just updates the file offset to the value specified by
  * @offset and @whence.
  */
+/*
+ * 重新定位读/写文件的偏移量 file指向目标文件 offset为偏移量 whence指定偏移类型
+ * whence为SEEK_END时将新位置指定成从文件结尾开始的的一个偏移距离
+ * whence为SEEK_CUR时将新位置指定成从当前文件位置开始的一个偏移距离
+ * whence为SEEK_DATA时将新位置指定成下一个大于等于偏移量的非孔文件区域的起始处
+ * whence为SEEK_HOLE时将新位置指定成下一个大于等于偏移量的孔区域的起始处
+ */
+
 loff_t hmfs_file_llseek(struct file *file, loff_t offset, int whence)
 {
 	struct inode *inode = file->f_mapping->host;
@@ -524,6 +539,7 @@ loff_t hmfs_file_llseek(struct file *file, loff_t offset, int whence)
 
 	mutex_lock(&inode->i_mutex);
 
+	/*文件占用的block数*/
 	end_blk = (eof + HMFS_PAGE_SIZE - 1) >> HMFS_PAGE_SIZE_BITS;
 
 	switch (whence) {
