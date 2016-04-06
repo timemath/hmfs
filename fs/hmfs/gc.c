@@ -462,9 +462,8 @@ static void move_orphan_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 	block_t cp_addr;
 	prepare_move_argument(&args, sbi, src_segno, src_off, src_sum,
 			TYPE_NODE);
-	hmfs_cp = args.cp_i->cp;
-	cp_addr = le64_to_cpu(hmfs_cp->orphan_addrs[get_summary_offset(src_sum)]);
-	hmfs_bug_on(sbi, cp_addr != L_ADDR(args.src));
+	cp_addr = le64_to_cpu(*((__le64 *)args.src));
+	hmfs_cp = ADDR(sbi, cp_addr);
 	hmfs_cp->orphan_addrs[get_summary_offset(src_sum)] = 
 			cpu_to_le64(args.dest_addr);
 
@@ -514,7 +513,6 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 	nid_t nid;
 	struct hmfs_summary_block *sum_blk;
 	struct hmfs_summary *sum;
-	int tmp=0;
 
 	none_valid = !get_seg_entry(sbi, segno)->valid_blocks;
 
@@ -524,9 +522,10 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 	sum_blk = get_summary_block(sbi, segno);
 	sum = sum_blk->entries;
 
+	//#ERROR: inconsistent of segno->valid_blocks
 	for (off = 0; off < HMFS_PAGE_PER_SEG; ++off, sum++) {
 		is_current  = get_summary_start_version(sum) == cm_i->new_version;
-		
+
 		/*
 		 * We ignore two kinds of blocks:
 		 * 	- invalid blocks in older version
@@ -537,12 +536,12 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 
 		if (is_current) {
 			nid = get_summary_nid(sum);
-			if (IS_ERR(get_node(sbi, nid)))
+			if (IS_ERR(get_node(sbi, nid))){
 				continue;
+			}
 		}
 
 		hmfs_bug_on(sbi, get_summary_valid_bit(sum) && is_current);
-
 		switch (get_summary_type(sum)) {
 		case SUM_TYPE_DATA:
 			move_data_block(sbi, segno, off, sum);
@@ -574,7 +573,6 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 		}
 	}
 
-	hmfs_dbg("tmp:%d\n",tmp);
 recycle:
 	recycle_segment(sbi, segno, none_valid);
 }
