@@ -6,6 +6,9 @@
  * it fall into space where we have actually writen data
  * into. It's different from valid bits in summary entry
  */
+ /*
+ * Hi,everybody,this is a test from caihui
+ */
 bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 {
 	seg_t segno = GET_SEGNO(sbi, addr);
