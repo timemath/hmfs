@@ -6,6 +6,14 @@
  * it fall into space where we have actually writen data
  * into. It's different from valid bits in summary entry
  */
+/*
+ * is_valid_address:先根据参数获取当前指针指向的对象所在的段号
+ * @sbi:指向超级块信息的指针实例
+ * @addr:块地址
+ * 如果该段号等于检查点指针的数据块所在的段号，则返回当前检查点所在的数据的偏移，证明该地址有效
+ * 同理，如果等于当前node所在的段号，则返回当前检查点所在的node的偏移，也证明该地址有效
+ * 否则，为无效地址,置为0
+ */
 bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 {
 	seg_t segno = GET_SEGNO(sbi, addr);
@@ -18,6 +26,11 @@ bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 	else
 		return get_seg_entry(sbi, segno)->valid_blocks > 0;
 }
+/*
+ *total_valid_blocks：计算某个超级块中用到的有效块的个数
+ *@ sbi:指向超级块信息的指针实例
+ *@ return:
+ */
 
 unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
 {
