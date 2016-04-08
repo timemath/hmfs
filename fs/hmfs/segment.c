@@ -79,7 +79,11 @@ unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 	}
 	return count;
 }
-
+/*
+ *__mark_sit_entry_dirty:记录当前段中SIT中脏的entry的个数
+ *@sit_i：指向 SIT表的实例
+ *@segno：当前段的段号
+ */
 static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 {
 	if (!__test_and_set_bit(segno, sit_i->dirty_sentries_bitmap))
