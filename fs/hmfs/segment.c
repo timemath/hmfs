@@ -27,9 +27,9 @@ bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 		return get_seg_entry(sbi, segno)->valid_blocks > 0;
 }
 /*
- *total_valid_blocks：计算某个超级块中用到的有效块的个数
+ *total_valid_blocks：遍历main area区域所有段，计算某个超级块中用到的有效块的个数
  *@ sbi:指向超级块信息的指针实例
- *@ return:
+ *@ return:总的有效快的个数
  */
 
 unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
@@ -43,7 +43,12 @@ unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
 
 	return sum;
 }
-
+/*
+ *get_seg_vblocks_in_summary:遍历SSA区域的当前段下，遍历每段每页每块的有效节点的个数
+ *@ sbi:指向超级块信息的指针实例
+ *@ segno:当前的段号
+ *@ return:返回当前有效节点的个数
+ */
 unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 {
 	struct hmfs_summary_block *sum_blk;
