@@ -83,6 +83,7 @@ unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
  *__mark_sit_entry_dirty:记录当前段中SIT中脏的entry的个数
  *@sit_i：指向 SIT表的实例
  *@segno：当前段的段号
+ *@return:返回当前当前SIT总脏的entry的个数
  */
 static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 {
@@ -91,6 +92,12 @@ static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 }
 
 /* Return amount of blocks which has been invalidated */
+/*
+ *invalidate_delete_block:先判断当前块是否是最新版本的块，如果不是，根据块地址获取段号，同时将该段标记为脏
+ *@sbi:指向超级块信息的指针实例
+ *@addr:当前块的地址
+ *@return:返回无效的块的数量
+ */
 int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
@@ -111,6 +118,11 @@ int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 	return 1;
 }
 
+/*
+ *init_min_max_mtime:先锁定当前entry的表，然后遍历当前超级块中所有的段，同时设置所有段SIT的最大、最小mtime
+ *@sbi:指向超级块信息的指针实例
+ *
+ */
 static void init_min_max_mtime(struct hmfs_sb_info *sbi)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
@@ -130,6 +142,12 @@ static void init_min_max_mtime(struct hmfs_sb_info *sbi)
 	sit_i->max_mtime = get_mtime(sbi);
 	unlock_sentry(sit_i);
 }
+/*
+ *update_sit_entry:记录当前段的有效的块数，同时记录当前段的空闲的和脏的大小，并且根据新的有效块SITentry，更新当前段的entry信息
+ *@sbi:指向超级块信息的指针实例
+ *@segno：当前段的段号
+ *@del：段偏移
+ */
 
 void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
 				int del)
@@ -153,6 +171,10 @@ void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
 	__mark_sit_entry_dirty(sit_i, segno);
 }
 
+/*
+ *reset_curseg:重置当前段的未分配块的起始位置
+ *@seg_i:当前段的段号
+ */
 static void reset_curseg(struct curseg_info *seg_i)
 {
 	atomic_set(&seg_i->segno, seg_i->next_segno);
@@ -160,6 +182,13 @@ static void reset_curseg(struct curseg_info *seg_i)
 	seg_i->next_segno = NULL_SEGNO;
 }
 
+/*
+ * __cal_page_addr:根据段号和块偏移，返回当前mainarea的起始位置
+ *@sbi:指向超级块信息的指针实例
+ *@segno：当前段的段号
+ *@blkoff:块偏移
+ *@return:返回当前mainarea的起始位置
+ */
 inline block_t __cal_page_addr(struct hmfs_sb_info *sbi, seg_t segno,
 				int blkoff)
 {
@@ -167,7 +196,12 @@ inline block_t __cal_page_addr(struct hmfs_sb_info *sbi, seg_t segno,
 					(blkoff << HMFS_PAGE_SIZE_BITS)
 					+ sbi->main_addr_start;
 }
-
+/*
+ *cal_page_addr:根据当前段号和要写的下一块偏移计算当前页的起始地址
+ *@sbi:指向超级块信息的指针实例
+ *@seg_i:当前段的段号
+ *@return:计算当前页的起始地址
+ */
 static inline unsigned long cal_page_addr(struct hmfs_sb_info *sbi,
 				struct curseg_info *seg_i)
 {
