@@ -285,8 +285,8 @@ static int move_to_new_segment(struct hmfs_sb_info *sbi,
 /*
  *13 get_free_block:
  *@sbi:指向超级块信息的指针实例
- *@seg_type:
- *@sit_lock:
+ *@seg_type:当前段的类型
+ *@sit_lock:记录当前SIT表是否锁定
  *@return:返回当前块的页的起始位置
  */
 static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type, 
@@ -355,9 +355,9 @@ block_t alloc_free_node_block(struct hmfs_sb_info * sbi, bool sit_lock)
 }
 
 /*
- *16 recovery_sit_entries:
- *@sbi:
- *@hmfs_cp:
+ *16 recovery_sit_entries:从日志记录中恢复SIT入口块的信息
+ *@sbi:指向超级块信息的指针实例
+ *@hmfs_cp:管理检查点的实例
  */
 void recovery_sit_entries(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *hmfs_cp)
@@ -366,14 +366,23 @@ void recovery_sit_entries(struct hmfs_sb_info *sbi,
 	struct hmfs_sit_log_entry *sit_log;
 	struct hmfs_sit_entry *sit_entry;
 	block_t seg_addr;
+	/*
+	 * 定义段号的类型
+	 */
 	seg_t sit_segno, segno;
 
 	nr_logs = le16_to_cpu(hmfs_cp->nr_logs);
 	nr_segs = hmfs_cp->nr_segs;
 	for (i = 0; i < nr_segs; i++) {
+		/*
+		 *依次转化获取了SIT日志的段号，计算当前mainarea的段地址
+		 */
 		sit_segno = le32_to_cpu(hmfs_cp->sit_logs[i]);
 		seg_addr = __cal_page_addr(sbi, sit_segno, 0);
 		sit_log = ADDR(sbi, seg_addr);
+		/*
+		 * 遍历完当前所有的检查点指向段，获取当前SIT的入口地址，用日志时间等信息更新entry信息
+		 */
 		while (num < nr_logs) {
 			segno = le32_to_cpu(sit_log->segno);
 			sit_entry = get_sit_entry(sbi, segno);
@@ -387,15 +396,27 @@ void recovery_sit_entries(struct hmfs_sb_info *sbi,
 		}
 	}
 }
-
+/*
+ *17 flush_sit_entries_rmcp:在删除一个检查点后更新SIT area的信息，刷新空闲SIT信息
+ *@sbi:指向超级块信息的指针实例
+ */
 /* Update SIT area after deleting a checkpoint */
 void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
+	/*
+	 *记录当前超级块中主存区肿块的个数
+	 */
 	pgc_t total_segs = TOTAL_SEGS(sbi);
 	struct hmfs_sit_entry *sit_entry;
 	struct seg_entry *seg_entry;
+	/*
+	 * 获取当前脏的entry的bitmap
+	 */
 	unsigned long *bitmap = sit_i->dirty_sentries_bitmap;
+	/*
+	 *获取某个段里面指向4KB大小的块的入口以及没有有效块的段的实例
+	 */
 	struct hmfs_summary *summary;
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	int i;
@@ -404,6 +425,9 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 	while(1) {
 		offset = find_next_bit(bitmap, total_segs, offset);
 		if (offset < total_segs) {
+			/*
+			 *根据偏移和超级块信息获取段入口SIT缓存入口地址
+			 */
 			seg_entry = get_seg_entry(sbi, offset);
 			sit_entry = get_sit_entry(sbi, offset);
 			/*
@@ -411,6 +435,9 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 			 * SIT area might be invalid. Because system might crash during
 			 * writing SIT. Thus, we need to calculate valid blocks by
 			 * scaning SSA area
+			 */
+			/*
+			 * 如果系统崩溃，通过扫描SSA区域计算有效块的个数
 			 */
 			if (sbi->recovery_doing) {
 				seg_entry->valid_blocks = 0;
@@ -420,6 +447,9 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 						seg_entry->valid_blocks++;
 				}
 			}
+			/*
+			 *如果段的入口不是有效块，则记录空闲段的数量加1
+			 */
 			if (!seg_entry->valid_blocks) {
 				lock_write_segmap(free_i);
 				clear_bit(offset, free_i->free_segmap);
@@ -436,7 +466,9 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 	memset_nt(sit_i->dirty_sentries_bitmap, 0, sit_i->bitmap_size);
 }
 
-
+/*
+ *
+ */
 void flush_sit_entries(struct hmfs_sb_info *sbi, block_t new_cp_addr,
 				void *new_nat_root)
 {
@@ -534,7 +566,11 @@ retry:
 	sit_i->dirty_sentries = 0;
 	memset_nt(sit_i->dirty_sentries_bitmap, 0, sit_i->bitmap_size);
 }
-
+/*
+ *19 __set_test_and_inuse:处理并设置当前空闲段为未使用过
+ *@sbi:指向超级块信息的指针实例
+ *@segno:段号的类型
+ */
 static inline void __set_test_and_inuse(struct hmfs_sb_info *sbi,
 				seg_t segno)
 {
@@ -550,24 +586,39 @@ static inline void __set_test_and_inuse(struct hmfs_sb_info *sbi,
 /*
  * routines for build segment manager
  */
+/*
+ *20 build_sit_info:
+ *@sbi:指向超级块信息的指针实例
+ *@return:
+ */
 static int build_sit_info(struct hmfs_sb_info *sbi)
 {
+	/*
+	 * 定义检查点管理器的实例和检查点的实例
+	 */
 	struct hmfs_cm_info *cm_i = CM_I(sbi);
 	struct hmfs_checkpoint *hmfs_cp = cm_i->last_cp_i->cp;
 	struct sit_info *sit_i;
 	unsigned long long bitmap_size;
 
+	/*
+	 *为SIT信息表分配内存
+	 */
 	/* allocate memory for SIT information */
 	sit_i = kzalloc(sizeof(struct sit_info), GFP_KERNEL);
 	if (!sit_i)
 		return -ENOMEM;
-
+    /*
+     * 获取段管理器下整个段的信息
+     */
 	SM_I(sbi)->sit_info = sit_i;
 
 	sit_i->sentries = vzalloc(TOTAL_SEGS(sbi) * sizeof(struct seg_entry));
 	if (!sit_i->sentries)
 		return -ENOMEM;
-
+    /*
+     * 初始化当前脏的段的bitmap
+     */
 	bitmap_size = hmfs_bitmap_size(TOTAL_SEGS(sbi));
 	sit_i->bitmap_size = bitmap_size;
 	sit_i->dirty_sentries_bitmap = kzalloc(bitmap_size, GFP_KERNEL);
@@ -578,14 +629,27 @@ static int build_sit_info(struct hmfs_sb_info *sbi)
 
 	sit_i->dirty_sentries = 0;
 
+	/*
+	 * 更新文件系统的生存时间和装载时间
+	 */
 	sit_i->elapsed_time = le32_to_cpu(hmfs_cp->elapsed_time);
 	sit_i->mounted_time = CURRENT_TIME_SEC.tv_sec;
+	/*
+	 * 保护SIT的缓存
+	 */
 	mutex_init(&sit_i->sentry_lock);
 	return 0;
 }
 
+/*
+ *free_prefree_segments:
+ *@sbi:指向超级块信息的指针实例
+ */
 void free_prefree_segments(struct hmfs_sb_info *sbi)
 {
+	/*
+	 * 定义空闲块的实例
+	 */
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	int total_segs = TOTAL_SEGS(sbi);
 	unsigned long *bitmap = free_i->prefree_segmap;
@@ -598,9 +662,15 @@ void free_prefree_segments(struct hmfs_sb_info *sbi)
 		if (segno >= total_segs)
 			break;
 		clear_bit(segno, bitmap);
+		/*
+		 *刷新所有空闲段的信息，并且计数加1
+		 */
 		if (test_and_clear_bit(segno, free_i->free_segmap)) {
 			free_i->free_segments++;
 		}
+		/*
+		 *根据当前段号获取SSA信息
+		 */
 		ssa = get_summary_block(sbi, segno);
 		memset_nt(ssa, 0, HMFS_SUMMARY_BLOCK_SIZE);
 		segno++;
