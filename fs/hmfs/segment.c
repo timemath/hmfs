@@ -7,7 +7,7 @@
  * into. It's different from valid bits in summary entry
  */
 /*
- * is_valid_address:先根据参数获取当前指针指向的对象所在的段号
+ *1 is_valid_address:先根据参数获取当前指针指向的对象所在的段号
  * @sbi:指向超级块信息的指针实例
  * @addr:块地址
  * 如果该段号等于检查点指针的数据块所在的段号，则返回当前检查点所在的数据的偏移，证明该地址有效
@@ -27,7 +27,7 @@ bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 		return get_seg_entry(sbi, segno)->valid_blocks > 0;
 }
 /*
- *total_valid_blocks：遍历main area区域所有段，计算某个超级块中用到的有效块的个数
+ *2 total_valid_blocks：遍历main area区域所有段，计算某个超级块中用到的有效块的个数
  *@ sbi:指向超级块信息的指针实例
  *@ return:总的有效快的个数
  */
@@ -44,9 +44,9 @@ unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
 	return sum;
 }
 /*
- *get_seg_vblocks_in_summary:遍历SSA区域的当前段下，遍历每段每页每块的有效节点的个数
+ *3 get_seg_vblocks_in_summary:遍历SSA区域的当前段下，遍历每段每页每块的有效节点的个数
  *@ sbi:指向超级块信息的指针实例
- *@ segno:当前的段号
+ *@ segno:段号的类型
  *@ return:返回当前有效节点的个数
  */
 unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
@@ -80,9 +80,9 @@ unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 	return count;
 }
 /*
- *__mark_sit_entry_dirty:记录当前段中SIT中脏的entry的个数
+ *4 __mark_sit_entry_dirty:记录当前段中SIT中脏的entry的个数
  *@sit_i：指向 SIT表的实例
- *@segno：当前段的段号
+ *@segno：段号的类型
  *@return:返回当前当前SIT总脏的entry的个数
  */
 static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
@@ -93,7 +93,7 @@ static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 
 /* Return amount of blocks which has been invalidated */
 /*
- *invalidate_delete_block:先判断当前块是否是最新版本的块，如果不是，根据块地址获取段号，同时将该段标记为脏
+ *5 invalidate_delete_block:先判断当前块是否是最新版本的块，如果不是，根据块地址获取段号，同时将该段标记为脏
  *@sbi:指向超级块信息的指针实例
  *@addr:当前块的地址
  *@return:返回无效的块的数量
@@ -119,7 +119,7 @@ int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 }
 
 /*
- *init_min_max_mtime:先锁定当前entry的表，然后遍历当前超级块中所有的段，同时设置所有段SIT的最大、最小mtime
+ *6 init_min_max_mtime:先锁定当前entry的表，然后遍历当前超级块中所有的段，同时设置所有段SIT的最大、最小mtime
  *@sbi:指向超级块信息的指针实例
  *
  */
@@ -143,9 +143,9 @@ static void init_min_max_mtime(struct hmfs_sb_info *sbi)
 	unlock_sentry(sit_i);
 }
 /*
- *update_sit_entry:记录当前段的有效的块数，同时记录当前段的空闲的和脏的大小，并且根据新的有效块SITentry，更新当前段的entry信息
+ *7 update_sit_entry:记录当前段的有效的块数，同时记录当前段的空闲的和脏的大小，并且根据新的有效块SITentry，更新当前段的entry信息
  *@sbi:指向超级块信息的指针实例
- *@segno：当前段的段号
+ *@segno：段号的类型
  *@del：段偏移
  */
 
@@ -172,7 +172,7 @@ void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
 }
 
 /*
- *reset_curseg:重置当前段的未分配块的起始位置
+ *8 reset_curseg:重置当前段的未分配块的起始位置
  *@seg_i:当前段的段号
  */
 static void reset_curseg(struct curseg_info *seg_i)
@@ -183,7 +183,7 @@ static void reset_curseg(struct curseg_info *seg_i)
 }
 
 /*
- * __cal_page_addr:根据段号和块偏移，返回当前mainarea的起始位置
+ *9  __cal_page_addr:根据段号和块偏移，返回当前mainarea的起始位置
  *@sbi:指向超级块信息的指针实例
  *@segno：当前段的段号
  *@blkoff:块偏移
@@ -197,7 +197,7 @@ inline block_t __cal_page_addr(struct hmfs_sb_info *sbi, seg_t segno,
 					+ sbi->main_addr_start;
 }
 /*
- *cal_page_addr:根据当前段号和要写的下一块偏移计算当前页的起始地址
+ *10 cal_page_addr:根据当前段号和要写的下一块偏移计算当前页的起始地址
  *@sbi:指向超级块信息的指针实例
  *@seg_i:当前段的段号
  *@return:计算当前页的起始地址
@@ -214,8 +214,17 @@ static inline unsigned long cal_page_addr(struct hmfs_sb_info *sbi,
  * @newseg returns the found segment
  * must be success (otherwise cause error)
  */
+/*
+ *11 get_new_segment:遍历当前超级块下所有段，从空闲段的bitmap中，获取当前新的空闲的段的位置
+ *@sbi:指向超级块信息的指针实例
+ *@newseg:段号的类型
+ *@return:每段空闲的位置
+ */
 int get_new_segment(struct hmfs_sb_info *sbi, seg_t *newseg)
 {
+	/*
+	 * free_i:获取完全空闲的块的实例（没有有效的块）
+	 */
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	seg_t segno;
 	bool retry = false;
@@ -243,34 +252,63 @@ retry:
 	ssa = get_summary_block(sbi, segno);
 	memset_nt(ssa, 0, HMFS_SUMMARY_BLOCK_SIZE);
 unlock:
+/*
+ * unlock_write_segmap：锁定要写的段
+ */
 	unlock_write_segmap(free_i);
 	return ret;
 }
-
+/*
+ *12 move_to_new_segment:返回新的段的起始位置
+ *@sbi:指向超级块信息的指针实例
+ *@seg_i:获取当前active的段日志信息实例
+ *@return:返回当前新的空闲段的起始位置
+ */
 static int move_to_new_segment(struct hmfs_sb_info *sbi,
 				struct curseg_info *seg_i)
 {
+	/*
+	 * 获取当前的段号
+	 */
 	seg_t segno = atomic_read(&seg_i->segno);
 	int ret = get_new_segment(sbi, &segno);
 
 	if (ret)
 		return ret;
+	/*
+	 * 处理下一个预分配的段
+	 */
 	seg_i->next_segno = segno;
 	reset_curseg(seg_i);
 	return 0;
 }
-
+/*
+ *13 get_free_block:
+ *@sbi:指向超级块信息的指针实例
+ *@seg_type:
+ *@sit_lock:
+ *@return:返回当前块的页的起始位置
+ */
 static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type, 
 				bool sit_lock)
 {
 	block_t page_addr = 0;
+	/*
+	 * SIT表的信息
+	 */
 	struct sit_info *sit_i = SIT_I(sbi);
 	struct curseg_info *seg_i = &(CURSEG_I(sbi)[seg_type]);
 	int ret;
 
 	lock_curseg(seg_i);
 	
+	/*
+	 *判断当前段的下一个块偏移是不是已经是块的最后
+	 */
 	if (seg_i->next_blkoff == HMFS_PAGE_PER_SEG) {
+		/*
+		 *如果扫到块的尽头，则扫描下一个块
+		 */
 		ret = move_to_new_segment(sbi, seg_i);
 		if (ret) {
 			unlock_curseg(seg_i);
@@ -279,31 +317,48 @@ static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type,
 	}
 
 	page_addr = cal_page_addr(sbi, seg_i);
-
+    /*
+     *如果当前块为脏，，更新当前entry的位置
+     */
 	if (sit_lock)
 		lock_sentry(sit_i);
 	update_sit_entry(sbi, atomic_read(&seg_i->segno), 1);
 	
 	if (sit_lock)
 		unlock_sentry(sit_i);
-
+   /*
+    * 继续移动到下面active的块的偏移位置
+    */
 	seg_i->next_blkoff++;
 
 	unlock_curseg(seg_i);
 
 	return page_addr;
 }
-
+/*
+ * 14 alloc_free_data_block:遍历当前active的数据
+ * @sbi:指向超级块信息的指针实例
+ * @return:遍历当前所有的超级块，依次移到下一个active的块
+ */
 block_t alloc_free_data_block(struct hmfs_sb_info * sbi)
 {
 	return get_free_block(sbi, CURSEG_DATA, true);
 }
-
+/*
+ *15 alloc_free_node_block：遍历当前active的node
+ *@sbi:指向超级块信息的指针实例
+ *@sit_lock：依次移到下一个active的块
+ */
 block_t alloc_free_node_block(struct hmfs_sb_info * sbi, bool sit_lock)
 {
 	return get_free_block(sbi, CURSEG_NODE, sit_lock);
 }
 
+/*
+ *16 recovery_sit_entries:
+ *@sbi:
+ *@hmfs_cp:
+ */
 void recovery_sit_entries(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *hmfs_cp)
 {
