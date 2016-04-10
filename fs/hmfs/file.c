@@ -172,7 +172,10 @@ static unsigned int hmfs_file_seek_hole_data(struct inode *inode,
 found:
 	return start_blk + j < end_blk? start_blk + j : end_blk;
 }
-
+/*
+ * 读取filp指向的文件,buf指向缓冲区，len为读取的长度,ppos指向读取位置的偏移量
+ * 实现时先通过inode判断是否为inode内嵌文件，再分别通过不同过程进行读取
+ */
 static ssize_t __hmfs_xip_file_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
 {
@@ -193,12 +196,15 @@ static ssize_t __hmfs_xip_file_read(struct file *filp, char __user *buf,
 			error = PTR_ERR(inode_block);
 			goto out;
 		}
-
+/*
+ * 若读取位置加上长度不大于文件大小，则读取对应长度的内容
+ * 否则只读取该位置之后的所有内容
+ */
 		if (pos + len > isize)
 			copied = isize - pos;
 		else
 			copied = len;
-
+/*将inode内嵌文件的指定位置和长度的内容加载到缓冲区*/
 		if (__copy_to_user(buf, (__u8 *)inode_block->inline_content + pos,
 					copied)) {
 			copied = 0;
@@ -218,6 +224,7 @@ static ssize_t __hmfs_xip_file_read(struct file *filp, char __user *buf,
 	 * index : start inner-file blk number this loop
 	 * copied : read length so far
 	 */
+	/*根据pos和len，计算出块索引和偏移量，再按块进行读取直到全部读取完*/
 	do {
 		unsigned long nr, left;
 		void *xip_mem[1];
@@ -475,7 +482,11 @@ void destroy_ro_file_address_cache(void)
 }
 
 #else
-
+/*
+ * 读取filp指向文件的内容
+ * 若文件长度为0则直接返回
+ * 否则调用函数__hmfs_xip_file_read进行读取
+ */
 static ssize_t hmfs_xip_file_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
 {
@@ -491,12 +502,16 @@ out:
 	mutex_unlock(&filp->f_inode->i_mutex);
 	return ret;
 }
-
+/*直接调用通用的file_open函数*/
 int hmfs_file_open(struct inode *inode, struct file *filp)
 {
 	return generic_file_open(inode, filp);
 }
-
+/*
+ * 释放文件
+ * 并根据文件inode的flag标志判断inode是否为脏
+ * 若为脏，将文件内容同步到介质上
+ */
 static int hmfs_release_file(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
@@ -1187,7 +1202,12 @@ static int hmfs_file_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_ops = &hmfs_file_vm_ops;
 	return 0;
 }
-
+/*
+ * 根据file指针同步文件
+ * 若为只读文件不能同步直接返回
+ * 否则根据inode状态是为FI_DIRTY_INODE还是FI_DIRTY_SIZE
+ * 分别选择对应函数同步inode信息
+ */
 int hmfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	struct inode *inode = file->f_mapping->host;

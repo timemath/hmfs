@@ -60,7 +60,10 @@ static nid_t hmfs_max_nid(struct hmfs_sb_info *sbi)
 	nid *= NAT_ENTRY_PER_BLOCK;
 	return nid;
 }
-
+/*
+ * 设置一个dnode_of_data结构体
+ * 用于存储文件对应的direct node的node ID以及node地址
+ */
 void set_new_dnode(struct dnode_of_data *dn, struct inode *inode,
 				struct hmfs_inode *hi, struct direct_node *db, nid_t nid)
 {

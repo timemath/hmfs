@@ -116,7 +116,10 @@ void mark_size_dirty(struct inode *inode, loff_t size)
 	list_add_tail(&hi->list, &sbi->dirty_inodes_list);
 	spin_unlock(&sbi->dirty_inodes_lock);
 }
-
+/*
+ * 申请一个node block，将仅仅是i_size和i_block改变的inode的改变信息同步
+ * 并清除FI_DIRTY_SIZE状态
+ */
 int sync_hmfs_inode_size(struct inode *inode, bool force)
 {
 	struct hmfs_inode_info *inode_i = HMFS_I(inode);
@@ -140,7 +143,10 @@ int sync_hmfs_inode_size(struct inode *inode, bool force)
 	}
 	return 0;
 }
-
+/*
+ * 申请一个node block，将脏的inode信息全部同步到存储介质上
+ * 并清除inode的脏状态
+ */
 int sync_hmfs_inode(struct inode *inode, bool force)
 {
 	struct super_block *sb = inode->i_sb;
