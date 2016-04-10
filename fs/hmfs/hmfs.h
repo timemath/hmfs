@@ -550,7 +550,7 @@ static inline void clear_inode_flag(struct hmfs_inode_info *fi, int flag)
 		clear_bit(flag, &fi->flags);
 }
 
-/*鍒ゆ柇inode鏂囦欢鏄惁涓哄唴宓屾暟鎹�*/
+/*判断inode指向的文件是否为inode内嵌类型的文件*/
 static inline bool is_inline_inode(struct inode *inode)
 {
 	return is_inode_flag_set(HMFS_I(inode), FI_INLINE_DATA);
