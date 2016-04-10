@@ -287,6 +287,7 @@ struct hmfs_stat_info {
  * all the information are dedicated to a given direct node block determined
  * by the data offset in a file.
  */
+/*存储文件对应的direct node的ID，node地址，文件数据指针在node中的偏移量等*/
 struct dnode_of_data {
 	struct inode *inode;			/* vfs inode pointer */
 	struct hmfs_inode *inode_block;	/* its inode, NULL is possible */
@@ -337,7 +338,7 @@ static inline int check_nid_range(struct hmfs_sb_info *sbi, nid_t nid)
 		return -EINVAL;
 	return 0;
 }
-
+/*返回superblock指向的fs_info结构体*/
 static inline struct hmfs_sb_info *HMFS_SB(struct super_block *sb)
 {
 	return sb->s_fs_info;
@@ -549,7 +550,7 @@ static inline void clear_inode_flag(struct hmfs_inode_info *fi, int flag)
 		clear_bit(flag, &fi->flags);
 }
 
-/*判断inode文件是否为内嵌数据*/
+/*判断inode指向的文件是否为inode内嵌类型的文件*/
 static inline bool is_inline_inode(struct inode *inode)
 {
 	return is_inode_flag_set(HMFS_I(inode), FI_INLINE_DATA);
