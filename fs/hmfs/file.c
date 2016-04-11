@@ -41,7 +41,11 @@ static unsigned int start_block(unsigned int i, int level)
 		return i - ((i - NORMAL_ADDRS_PER_INODE) % ADDRS_PER_BLOCK);
 	return 0;
 }
-
+/*
+ * 减小有效块数
+ * 将inode指向文件的占有块数减小count个
+ * 同时使sbi对应超级块占有的有效块数减小count个
+ */
 static int dec_valid_block_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count)
 {
@@ -605,7 +609,12 @@ out:
 	mutex_unlock(&inode->i_mutex);
 	return ret;
 }
-
+/*
+ * 对filp指向文件进行写操作
+ * buf指向用户写的缓冲区，count为写的长度
+ * ppos指向写的位置相对文件的偏移量,pos为偏移量
+ * 先进行各类访问、权限等的检查后调用__hmfs_xip_file_write进行写操作
+ */
 static ssize_t __hmfs_xip_file_write(struct file *filp, const char __user *buf,
 				size_t count, loff_t pos, loff_t *ppos)
 {
@@ -617,6 +626,11 @@ static ssize_t __hmfs_xip_file_write(struct file *filp, const char __user *buf,
 	struct hmfs_inode *inode_block;
 
 	if (is_inline_inode(inode)) {
+/*
+ * 若写入之后的文件长度大于内嵌文件最大长度
+ * 将文件由内嵌文件转化为普通文件
+ * 并进行普通文件写
+ */
 		if (pos + count > HMFS_INLINE_SIZE) {
 			status = hmfs_convert_inline_inode(inode);
 			if (status) {
@@ -624,6 +638,10 @@ static ssize_t __hmfs_xip_file_write(struct file *filp, const char __user *buf,
 			}
 			goto normal_write;
 		}
+/*
+ * 否则分配新的inode block
+ * 并调用__copy_from_user_nocache将缓冲区内容写到内嵌文件对应位置
+ */
 		inode_block = alloc_new_node(HMFS_I_SB(inode), inode->i_ino, inode,
 							SUM_TYPE_INODE, false);
 		if (IS_ERR(inode_block)) {
@@ -653,7 +671,11 @@ normal_write:
 		bytes = HMFS_PAGE_SIZE - offset;
 		if (bytes > count)
 			bytes = count;
-
+/*
+ * 普通文件写
+ * 分配新的数据块再调用__copy_from_user_nocache将缓冲区写到数据块对应位置
+ * 根据偏移量offset和输入长度count，依次按块写直到全部写完
+ */
 		xip_mem = alloc_new_data_block(sbi, inode, index);
 		if (unlikely(IS_ERR(xip_mem))) {
 			status = -ENOSPC;
@@ -690,7 +712,12 @@ out:
 	}
 	return written ? written : status;
 }
-
+/*
+ * 对filp指向文件进行写操作
+ * buf指向用户写的缓冲区，len为写的长度
+ * ppos指向写的位置相对文件的偏移量
+ * 先进行各类访问、权限等的检查后调用__hmfs_xip_file_write进行写操作
+ */
 ssize_t hmfs_xip_file_write(struct file * filp, const char __user * buf,
 			    size_t len, loff_t * ppos)
 {
@@ -700,7 +727,7 @@ ssize_t hmfs_xip_file_write(struct file * filp, const char __user * buf,
 	size_t count = 0, ret;
 	loff_t pos;
 	int ilock;
-
+/*检查缓冲区对应长度的内容是否能访问*/
 	if (!access_ok(VERIFY_READ, buf, len)) {
 		ret = -EFAULT;
 		goto out_up;
@@ -710,12 +737,15 @@ ssize_t hmfs_xip_file_write(struct file * filp, const char __user * buf,
 	count = len;
 
 	current->backing_dev_info = mapping->backing_dev_info;
-
+/*
+ * 边界检查，需要判断写入数据是否超界、小文件边界检查以及设备是否是read-only。
+ * 如果超界，那么降低写入数据长度
+ */
 	ret = generic_write_checks(filp, &pos, &count, S_ISBLK(inode->i_mode));
 
 	if (ret)
 		goto out_backing;
-
+/*count为实际可以写入的数据长度，如果可以写入数据长度为0，直接结束 */
 	if (count == 0)
 		goto out_backing;
 
@@ -746,6 +776,11 @@ out_up:
 }
 
 /* dn->node_block should be writable */
+/*
+ * 截断dn指向的direct node中的数据
+ * 检查dn->ofs_in_node之后一共count个地址指向的块是否为最新版本，若不是则删除无效块
+ * 再将删除后的有效块数量更新到inode和超级块中，并将inode标记为脏
+ */
 int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
 {
 	int nr_free = 0, ofs = dn->ofs_in_node;
@@ -796,6 +831,11 @@ int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
  * Because we truncate whole direct node, we don't mark the
  * addr in direct node. Instead, we set the address of direct node
  * in its parent indirect node to be NULL_ADDR
+ */
+/*
+ * 缩短dn指向的direct node中的数据
+ * 检查dn->node_block中的每个地址指向的块是否为最新版本，若不是则删除无效块
+ * 再将删除后的有效块数量更新到inode和超级块中，并将inode标记为脏
  */
 void truncate_data_blocks(struct dnode_of_data *dn)
 {
@@ -892,7 +932,11 @@ void hmfs_truncate(struct inode *inode)
 	}
 
 }
-
+/*
+ *截断孔
+ *在inode指向文件的第start块与第end块之间截断出孔区域
+ *用于对可能占用多块的普通文件预分配空间
+ */
 int truncate_hole(struct inode *inode, pgoff_t start, pgoff_t end)
 {
 	pgoff_t index;
@@ -911,7 +955,10 @@ int truncate_hole(struct inode *inode, pgoff_t start, pgoff_t end)
 	}
 	return 0;
 }
-
+/*
+ * 填充零，即在inode指向文件第index个块偏移量为start处
+ * 填充一长度为len的孔区域
+ */
 static void fill_zero(struct inode *inode, pgoff_t index, loff_t start,
 		      loff_t len)
 {
@@ -920,7 +967,10 @@ static void fill_zero(struct inode *inode, pgoff_t index, loff_t start,
 
 	alloc_new_data_partial_block(inode, index, start, start + len, true);
 }
-
+/*
+ * 打孔，对于inode指向文件在offset偏移量处增加一长度为len的孔
+ * 用于fallocate函数预分配空间
+ */
 static int punch_hole(struct inode *inode, loff_t offset, loff_t len, int mode)
 {
 	pgoff_t pg_start, pg_end;
@@ -932,7 +982,11 @@ static int punch_hole(struct inode *inode, loff_t offset, loff_t len, int mode)
 	pg_end = ((unsigned long long) offset + len) >> HMFS_PAGE_SIZE_BITS;
 	off_start = offset & (HMFS_PAGE_SIZE - 1);
 	off_end = (offset + len) & (HMFS_PAGE_SIZE - 1);
-
+/*
+ * 若为inode内嵌文件，且增加孔后长度仍符合内嵌文件，则不需打孔
+ *（因inode内嵌文件创建时内容已经初始化为0）
+ * 否则若增加孔后长度大于内嵌文件限制，则转化文件类型为普通文件再打孔
+ */
 	if (is_inline_inode(inode)) {
 		if (offset + len > HMFS_INLINE_SIZE) {
 			ret = hmfs_convert_inline_inode(inode);
@@ -1194,7 +1248,11 @@ static const struct vm_operations_struct hmfs_file_vm_ops = {
 	.close = hmfs_filemap_close,
 	.fault = hmfs_filemap_fault,
 };
-
+/*
+ * 文件映射，将file指向文件映射到vma指向的地址空间
+ * 修改文件访问信息
+ * 设置vma的flag标志并将其操作指针指向hmfs_file_vm_ops
+ */
 static int hmfs_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	file_accessed(file);

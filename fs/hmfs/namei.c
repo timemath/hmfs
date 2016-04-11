@@ -356,7 +356,11 @@ out_k:
 out:
 	return err;
 }
-
+/*
+ * 获取dentry->d_inode的文件属性
+ * 将其复制到stat指向的kstat结构体里
+ * 并将stat->blocks左移3位
+ */
 int hmfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 		 struct kstat *stat)
 {
