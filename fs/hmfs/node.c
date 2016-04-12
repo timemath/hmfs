@@ -9,7 +9,9 @@
 static struct kmem_cache *nat_entry_slab;
 
 const struct address_space_operations hmfs_nat_aops;
-
+/**
+ * 为@inode增加@count个blocks(修改元数据，未实现分配）
+ */
 static inline bool inc_valid_node_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count, bool force)
 {
@@ -36,7 +38,9 @@ static inline bool inc_valid_node_count(struct hmfs_sb_info *sbi,
 
 	return true;
 }
-
+/**
+ *  减少@inode的@count个blocks(修改元数据）
+ */ 
 static inline void dec_valid_node_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count, bool dec_valid)
 {
@@ -49,7 +53,9 @@ static inline void dec_valid_node_count(struct hmfs_sb_info *sbi,
 		cm_i->valid_block_count -= count;
 	unlock_cm(cm_i);
 }
-
+/**
+ * 返回系统最大可能的NODE_ID
+ */
 static nid_t hmfs_max_nid(struct hmfs_sb_info *sbi)
 {
 	nid_t nid = 1;
@@ -76,6 +82,13 @@ void set_new_dnode(struct dnode_of_data *dn, struct inode *inode,
 /**
  * The maximum depth is 4.
  */
+ /**
+  * 寻找@block在inode中的索引路径，即从inode找到@block需经过的的NODE。
+  * @offset   指针相对于节点起始地址的便宜
+  * @noffset  指针在所有指针中的便宜
+  */ 
+ 
+ 
 int get_node_path(long block, int offset[4], unsigned int noffset[4])
 {
 	const long direct_index = NORMAL_ADDRS_PER_INODE;
@@ -158,12 +171,16 @@ int get_node_path(long block, int offset[4], unsigned int noffset[4])
 got:
 	return level;
 }
-
+/**
+ * 返回@n为NODE_ID的NAT_ENTRYT在内存中的地址
+ */ 
 static struct nat_entry *__lookup_nat_cache(struct hmfs_nm_info *nm_i, nid_t n)
 {
 	return radix_tree_lookup(&nm_i->nat_root, n);
 }
-
+/**
+ * NODE_MANAGER销毁
+ */ 
 void destroy_node_manager(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -192,7 +209,9 @@ void destroy_node_manager(struct hmfs_sb_info *sbi)
 	kfree(nm_i->free_nids);
 	kfree(nm_i);
 }
-
+/**
+ * 初始化node_manager
+ */ 
 static int init_node_manager(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -218,7 +237,10 @@ static int init_node_manager(struct hmfs_sb_info *sbi)
 	mutex_init(&nm_i->build_lock);
 	return 0;
 }
-
+/**
+ * 空闲node分配失败恢复 分
+ * @nid 分配失败的节点ID
+ */ 
 void alloc_nid_failed(struct hmfs_sb_info *sbi, nid_t nid)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -233,7 +255,10 @@ void alloc_nid_failed(struct hmfs_sb_info *sbi, nid_t nid)
 	nm_i->fcnt++;
 	unlock_free_nid(nm_i);
 }
-
+/**
+ * 在NAT树中加入nat_entry
+ * @nid 加入nat_entry的节点ID
+ */ 
 static struct nat_entry *grab_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid)
 {
 	struct nat_entry *new;
@@ -251,7 +276,9 @@ static struct nat_entry *grab_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid)
 	nm_i->nat_cnt++;
 	return new;
 }
-
+/**
+ * 删除dnode
+ */ 
 void truncate_node(struct dnode_of_data *dn)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(dn->inode);
@@ -282,7 +309,9 @@ void truncate_node(struct dnode_of_data *dn)
 invalidate:
 	dn->node_block = NULL;
 }
-
+/**
+ * 删除dnode及其索引的data node
+ */ 
 static int truncate_dnode(struct dnode_of_data *dn)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(dn->inode);
@@ -308,6 +337,10 @@ static int truncate_dnode(struct dnode_of_data *dn)
  * We're about to truncate the whole nodes. Therefore, we don't need to COW
  * the old node. We just mark the its nid slot in parent node to be 0
  */
+ /**
+  * 层层释放Indirect node
+  */ 
+  
 static int truncate_nodes(struct dnode_of_data *dn, unsigned int nofs, int ofs,
 				int depth)
 {
@@ -379,6 +412,9 @@ out_err:
 }
 
 /* return address of node in historic checkpoint */
+/**
+ *  获取特定CP版本的@nid的hmfs_node
+ */ 
 struct hmfs_node *__get_node(struct hmfs_sb_info *sbi,
 				struct checkpoint_info *cp_i, nid_t nid)
 {
@@ -395,7 +431,9 @@ struct hmfs_node *__get_node(struct hmfs_sb_info *sbi,
 
 	return ADDR(sbi, node_addr);
 }
-
+/**
+ * 释放inode中block之后的块
+ */ 
 static int truncate_partial_nodes(struct dnode_of_data *dn,
 				struct hmfs_inode *hi, int *offset, int depth)
 {
@@ -460,7 +498,9 @@ static int truncate_partial_nodes(struct dnode_of_data *dn,
 fail:
 	return err;
 }
-
+/**
+ * 删除@inode中@from之后的block
+ */
 int truncate_inode_blocks(struct inode *inode, pgoff_t from)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
@@ -538,7 +578,9 @@ skip_partial:
 fail:
 	return err > 0 ? 0 : err;
 }
-
+/**
+ * 更新内存中@nid的nat_entry的块地址为@blk_addr 
+ */ 
 void gc_update_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid,
 				block_t blk_addr)
 {
@@ -552,7 +594,9 @@ void gc_update_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid,
 
 	unlock_write_nat(nm_i);
 }
-
+/**
+ * 更新@nid的nat_entry,检查是否为脏页
+ */ 
 void update_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid, nid_t ino,
 		      block_t blk_addr, bool dirty)
 {
@@ -596,6 +640,9 @@ unlock:
  * return node address in NVM by nid, would not allocate
  * new node
  */
+ /**
+  * 返回Node ID为@nid的节点NVM地址
+  */ 
 void *get_node(struct hmfs_sb_info *sbi, nid_t nid)
 {
 	struct node_info ni;
@@ -619,7 +666,9 @@ void *get_node(struct hmfs_sb_info *sbi, nid_t nid)
 
 	return ADDR(sbi, ni.blk_addr);
 }
-
+/**
+ * 为新NODE设置summary_entry
+ */ 
 static void setup_summary_of_new_node(struct hmfs_sb_info *sbi,
 				block_t new_node_addr, block_t src_addr, nid_t ino,
 				unsigned int ofs_in_node, char sum_type)
@@ -631,7 +680,9 @@ static void setup_summary_of_new_node(struct hmfs_sb_info *sbi,
 	make_summary_entry(dest_sum, ino, cm_i->new_version, ofs_in_node,
 			sum_type);
 }
-
+/**
+ * 为@inode分配一个节点,Node ID为@nid ，返回节点地址 (COW)
+ */ 
 static struct hmfs_node *__alloc_new_node(struct hmfs_sb_info *sbi, nid_t nid,
 				struct inode *inode, char sum_type, bool force)
 {
@@ -680,7 +731,9 @@ static struct hmfs_node *__alloc_new_node(struct hmfs_sb_info *sbi, nid_t nid,
 
 	return dest;
 }
-
+/**
+ * 分配一个块
+ */ 
 void *alloc_new_node(struct hmfs_sb_info *sbi, nid_t nid, struct inode *inode,
 				char sum_type, bool force)
 {
@@ -703,7 +756,9 @@ void *alloc_new_node(struct hmfs_sb_info *sbi, nid_t nid, struct inode *inode,
 	addr = alloc_free_node_block(sbi, true);
 	return ADDR(sbi, addr);
 }
-
+/**
+ * 填充@nid的node_info @ni
+ */ 
 int get_node_info(struct hmfs_sb_info *sbi, nid_t nid, struct node_info *ni)
 {
 	struct hmfs_nat_entry *ne_local;
@@ -729,7 +784,9 @@ int get_node_info(struct hmfs_sb_info *sbi, nid_t nid, struct node_info *ni)
 	update_nat_entry(nm_i, nid, ni->ino, ni->blk_addr, false);
 	return 0;
 }
-
+/**
+ * 将nid置为free  （0,1有什么区别，可能不是空闲？？？？）
+ */ 
 static void add_free_nid(struct hmfs_nm_info *nm_i, nid_t nid, u64 free,
 				int *pos)
 {
@@ -737,6 +794,9 @@ static void add_free_nid(struct hmfs_nm_info *nm_i, nid_t nid, u64 free,
 }
 
 /* Get free nid from journals of loaded checkpoint */
+/**
+ * 用NAT_JOURNAL初始化NODE_MANAGER的free nid
+ */ 
 static void init_free_nids(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_cm_info *cm_i = CM_I(sbi);
@@ -764,6 +824,9 @@ static void init_free_nids(struct hmfs_sb_info *sbi)
 }
 
 /* Check whether block_addr of nid in journal is NULL_ADDR */
+/**
+ * 检查@NID是否可用 (???)
+ */ 
 static int is_valid_free_nid(struct hmfs_sb_info *sbi, nid_t nid)
 {
 	struct hmfs_cm_info *cm_i = CM_I(sbi);
@@ -802,7 +865,9 @@ static int is_valid_free_nid(struct hmfs_sb_info *sbi, nid_t nid)
 check_value:
 	return nid > HMFS_ROOT_INO;
 }
-
+/**
+ * 扫描一个nat block，将其中pos个未使用的nid放入未分配链表
+ */ 
 static nid_t scan_nat_block(struct hmfs_sb_info *sbi,
 				struct hmfs_nat_block *nat_blk, nid_t start_nid, int *pos)
 {
@@ -831,6 +896,9 @@ found:
 }
 
 /* Scan free nid from dirty nat entries */
+/**
+ * 脏NAT链表找@pos个 free nid 
+ */ 
 static int scan_delete_nid(struct hmfs_sb_info *sbi, int *pos)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -864,7 +932,9 @@ static int scan_delete_nid(struct hmfs_sb_info *sbi, int *pos)
 	unlock_write_nat(nm_i);
 	return *pos;
 }
-
+/**
+ * 构造可用的fre nid链表
+ */ 
 static int build_free_nids(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -901,7 +971,9 @@ static int build_free_nids(struct hmfs_sb_info *sbi)
 	nm_i->next_scan_nid = nid;
 	return count;
 }
-
+/**
+ * 从free nid 链表分配nid
+ */ 
 bool alloc_nid(struct hmfs_sb_info *sbi, nid_t *nid)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -932,7 +1004,9 @@ retry:
 
 	goto retry;
 }
-
+/**
+ * 创建node_manager的nat_entry slab缓存
+ */ 
 int create_node_manager_caches(void)
 {
 	nat_entry_slab = hmfs_kmem_cache_create("hmfs_nat_entry",
@@ -942,13 +1016,18 @@ int create_node_manager_caches(void)
 
 	return 0;
 }
-
+/**
+ * 销毁nat_entry slab缓存
+ */ 
 void destroy_node_manager_caches(void)
 {
 	kmem_cache_destroy(nat_entry_slab);
 }
 
 /* get a nat/nat page from nat/nat in-NVM tree */
+/**
+ * 返回树中第@order个节点地址
+ */ 
 static void *__get_nat_page(struct hmfs_sb_info *sbi, block_t cur_node_addr,
 				unsigned int order, unsigned char height)
 {
@@ -970,7 +1049,9 @@ static void *__get_nat_page(struct hmfs_sb_info *sbi, block_t cur_node_addr,
 	return __get_nat_page(sbi, child_node_addr, order & ((1 << ofs) - 1),
 				height - 1);
 }
-
+/**
+ * 返回cp版本@version中node id为@nid的NAT块地址
+ */ 
 struct hmfs_nat_block *get_nat_entry_block(struct hmfs_sb_info *sbi,
 				ver_t version, nid_t nid)
 {
@@ -982,7 +1063,9 @@ struct hmfs_nat_block *get_nat_entry_block(struct hmfs_sb_info *sbi,
 	hmfs_bug_on(sbi, !cp_i);
 	return __get_nat_page(sbi, L_ADDR(sbi, nat_root), blk_id, nat_height);
 }
-
+/**
+ * 返回cp版本@version中node id为@nid的hmfs_nat_entry地址
+ */ 
 struct hmfs_nat_entry *get_nat_entry(struct hmfs_sb_info *sbi,
 				ver_t version, nid_t nid)
 {
