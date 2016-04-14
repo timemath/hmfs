@@ -6,13 +6,14 @@
  * it fall into space where we have actually writen data
  * into. It's different from valid bits in summary entry
  */
+
 /*
- *1 is_valid_address:�ȸ�ݲ����ȡ��ǰָ��ָ��Ķ������ڵĶκ�
- * @sbi:ָ�򳬼�����Ϣ��ָ��ʵ��
- * @addr:���ַ
- * ���öκŵ��ڼ���ָ�����ݿ����ڵĶκţ��򷵻ص�ǰ�������ڵ���ݵ�ƫ�ƣ�֤���õ�ַ��Ч
- * ͬ�?�����ڵ�ǰnode���ڵĶκţ��򷵻ص�ǰ�������ڵ�node��ƫ�ƣ�Ҳ֤���õ�ַ��Ч
- * ����Ϊ��Ч��ַ,��Ϊ0
+ *  *1 is_valid_address:先根据参数获取当前指针指向的对象所在的段号
+- * @sbi:指向超级块信息的指针实例
+- * @addr:块地址
+- * 如果该段号等于检查点指针的数据块所在的段号，则返回当前检查点所在的数据的偏移，证明该地址有效
+- * 同理，如果等于当前node所在的段号，则返回当前检查点所在的node的偏移，也证明该地址有效
+- * 否则，为无效地址,置为0
  */
 bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 {
@@ -27,9 +28,9 @@ bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 		return get_seg_entry(sbi, segno)->valid_blocks > 0;
 }
 /*
- *2 total_valid_blocks������main area�������жΣ�����ĳ�����������õ�����Ч��ĸ���
- *@ sbi:ָ�򳬼�����Ϣ��ָ��ʵ��
- *@ return:�ܵ���Ч��ĸ���
+  *2 total_valid_blocks：遍历main area区域所有段，计算某个超级块中用到的有效块的个数
+- *@ sbi:指向超级块信息的指针实例
+- *@ return:总的有效快的个数
  */
 
 unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
@@ -44,10 +45,10 @@ unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
 	return sum;
 }
 /*
- *3 get_seg_vblocks_in_summary:����SSA����ĵ�ǰ���£�����ÿ��ÿҳÿ�����Ч�ڵ�ĸ���
- *@ sbi:ָ�򳬼�����Ϣ��ָ��ʵ��
- *@ segno:�κŵ�����
- *@ return:���ص�ǰ��Ч�ڵ�ĸ���
+  *3 get_seg_vblocks_in_summary:遍历SSA区域的当前段下，遍历每段每页每块的有效节点的个数
+- *@ sbi:指向超级块信息的指针实例
+- *@ segno:段号的类型
+- *@ return:返回当前有效节点的个数
  */
 unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 {
@@ -79,11 +80,12 @@ unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 	}
 	return count;
 }
+
 /*
- *4 __mark_sit_entry_dirty:��¼��ǰ����SIT�����entry�ĸ���
- *@sit_i��ָ�� SIT���ʵ��
- *@segno���κŵ�����
- *@return:���ص�ǰ��ǰSIT�����entry�ĸ���
+  *4 __mark_sit_entry_dirty:记录当前段中SIT中脏的entry的个数
+- *@sit_i：指向 SIT表的实例
+- *@segno：段号的类型
+- *@return:返回当前当前SIT总脏的entry的个数
  */
 static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 {
@@ -92,11 +94,12 @@ static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 }
 
 /* Return amount of blocks which has been invalidated */
+
 /*
- *5 invalidate_delete_block:���жϵ�ǰ���Ƿ������°汾�Ŀ飬����ǣ���ݿ��ַ��ȡ�κţ�ͬʱ���öα��Ϊ��
- *@sbi:ָ�򳬼�����Ϣ��ָ��ʵ��
- *@addr:��ǰ��ĵ�ַ
- *@return:������Ч�Ŀ������
+  *5 invalidate_delete_block:先判断当前块是否是最新版本的块，如果不是，根据块地址获取段号，同时将该段标记为脏
+- *@sbi:指向超级块信息的指针实例
+- *@addr:当前块的地址
+- *@return:返回无效的块的数量
  */
 int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 {
@@ -119,9 +122,8 @@ int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 }
 
 /*
- *6 init_min_max_mtime:����ǰentry�ı?Ȼ�����ǰ�����������еĶΣ�ͬʱ�������ж�SIT�������Сmtime
- *@sbi:ָ�򳬼�����Ϣ��ָ��ʵ��
- *
+ - *6 init_min_max_mtime:先锁定当前entry的表，然后遍历当前超级块中所有的段，同时设置所有段SIT的最大、最小mtime
+- *@sbi:指向超级块信息的指针实例
  */
 static void init_min_max_mtime(struct hmfs_sb_info *sbi)
 {
@@ -143,10 +145,10 @@ static void init_min_max_mtime(struct hmfs_sb_info *sbi)
 	unlock_sentry(sit_i);
 }
 /*
- *7 update_sit_entry:��¼��ǰ�ε���Ч�Ŀ���ͬʱ��¼��ǰ�εĿ��еĺ���Ĵ�С�����Ҹ���µ���Ч��SITentry�����µ�ǰ�ε�entry��Ϣ
- *@sbi:ָ�򳬼�����Ϣ��ָ��ʵ��
- *@segno���κŵ�����
- *@del����ƫ��
+ - *7 update_sit_entry:记录当前段的有效的块数，同时记录当前段的空闲的和脏的大小，并且根据新的有效块SITentry，更新当前段的entry信息
+- *@sbi:指向超级块信息的指针实例
+- *@segno：段号的类型
+- *@del：段偏移
  */
 
 void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
@@ -172,8 +174,8 @@ void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
 }
 
 /*
- *8 reset_curseg:���õ�ǰ�ε�δ��������ʼλ��
- *@seg_i:��ǰ�εĶκ�
+ - *8 reset_curseg:重置当前段的未分配块的起始位置
+- *@seg_i:当前段的段号
  */
 static void reset_curseg(struct curseg_info *seg_i)
 {
