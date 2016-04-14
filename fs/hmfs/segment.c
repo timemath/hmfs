@@ -7,12 +7,12 @@
  * into. It's different from valid bits in summary entry
  */
 /*
- *1 is_valid_address:ÏÈ¸ù¾İ²ÎÊı»ñÈ¡µ±Ç°Ö¸ÕëÖ¸ÏòµÄ¶ÔÏóËùÔÚµÄ¶ÎºÅ
- * @sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- * @addr:¿éµØÖ·
- * Èç¹û¸Ã¶ÎºÅµÈÓÚ¼ì²éµãÖ¸ÕëµÄÊı¾İ¿éËùÔÚµÄ¶ÎºÅ£¬Ôò·µ»Øµ±Ç°¼ì²éµãËùÔÚµÄÊı¾İµÄÆ«ÒÆ£¬Ö¤Ã÷¸ÃµØÖ·ÓĞĞ§
- * Í¬Àí£¬Èç¹ûµÈÓÚµ±Ç°nodeËùÔÚµÄ¶ÎºÅ£¬Ôò·µ»Øµ±Ç°¼ì²éµãËùÔÚµÄnodeµÄÆ«ÒÆ£¬Ò²Ö¤Ã÷¸ÃµØÖ·ÓĞĞ§
- * ·ñÔò£¬ÎªÎŞĞ§µØÖ·,ÖÃÎª0
+ *1 is_valid_address:ï¿½È¸ï¿½İ²ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ç°Ö¸ï¿½ï¿½Ö¸ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÚµÄ¶Îºï¿½
+ * @sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ * @addr:ï¿½ï¿½ï¿½Ö·
+ * ï¿½ï¿½ï¿½Ã¶ÎºÅµï¿½ï¿½Ú¼ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½İ¿ï¿½ï¿½ï¿½ï¿½ÚµÄ¶ÎºÅ£ï¿½ï¿½ò·µ»Øµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½İµï¿½Æ«ï¿½Æ£ï¿½Ö¤ï¿½ï¿½ï¿½Ãµï¿½Ö·ï¿½ï¿½Ğ§
+ * Í¬ï¿½?ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ç°nodeï¿½ï¿½ï¿½ÚµÄ¶ÎºÅ£ï¿½ï¿½ò·µ»Øµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½nodeï¿½ï¿½Æ«ï¿½Æ£ï¿½Ò²Ö¤ï¿½ï¿½ï¿½Ãµï¿½Ö·ï¿½ï¿½Ğ§
+ * ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ğ§ï¿½ï¿½Ö·,ï¿½ï¿½Îª0
  */
 bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 {
@@ -27,9 +27,9 @@ bool is_valid_address(struct hmfs_sb_info *sbi, block_t addr)
 		return get_seg_entry(sbi, segno)->valid_blocks > 0;
 }
 /*
- *2 total_valid_blocks£º±éÀúmain areaÇøÓòËùÓĞ¶Î£¬¼ÆËãÄ³¸ö³¬¼¶¿éÖĞÓÃµ½µÄÓĞĞ§¿éµÄ¸öÊı
- *@ sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@ return:×ÜµÄÓĞĞ§¿ìµÄ¸öÊı
+ *2 total_valid_blocksï¿½ï¿½ï¿½ï¿½ï¿½ï¿½main areaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¶Î£ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½
+ *@ sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@ return:ï¿½Üµï¿½ï¿½ï¿½Ğ§ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½
  */
 
 unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
@@ -44,10 +44,10 @@ unsigned long total_valid_blocks(struct hmfs_sb_info *sbi)
 	return sum;
 }
 /*
- *3 get_seg_vblocks_in_summary:±éÀúSSAÇøÓòµÄµ±Ç°¶ÎÏÂ£¬±éÀúÃ¿¶ÎÃ¿Ò³Ã¿¿éµÄÓĞĞ§½ÚµãµÄ¸öÊı
- *@ sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@ segno:¶ÎºÅµÄÀàĞÍ
- *@ return:·µ»Øµ±Ç°ÓĞĞ§½ÚµãµÄ¸öÊı
+ *3 get_seg_vblocks_in_summary:ï¿½ï¿½ï¿½ï¿½SSAï¿½ï¿½ï¿½ï¿½Äµï¿½Ç°ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ã¿Ò³Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½Úµï¿½Ä¸ï¿½ï¿½ï¿½
+ *@ sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@ segno:ï¿½ÎºÅµï¿½ï¿½ï¿½ï¿½ï¿½
+ *@ return:ï¿½ï¿½ï¿½Øµï¿½Ç°ï¿½ï¿½Ğ§ï¿½Úµï¿½Ä¸ï¿½ï¿½ï¿½
  */
 unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 {
@@ -80,10 +80,10 @@ unsigned long get_seg_vblocks_in_summary(struct hmfs_sb_info *sbi, seg_t segno)
 	return count;
 }
 /*
- *4 __mark_sit_entry_dirty:¼ÇÂ¼µ±Ç°¶ÎÖĞSITÖĞÔàµÄentryµÄ¸öÊı
- *@sit_i£ºÖ¸Ïò SIT±íµÄÊµÀı
- *@segno£º¶ÎºÅµÄÀàĞÍ
- *@return:·µ»Øµ±Ç°µ±Ç°SIT×ÜÔàµÄentryµÄ¸öÊı
+ *4 __mark_sit_entry_dirty:ï¿½ï¿½Â¼ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½SITï¿½ï¿½ï¿½ï¿½ï¿½entryï¿½Ä¸ï¿½ï¿½ï¿½
+ *@sit_iï¿½ï¿½Ö¸ï¿½ï¿½ SITï¿½ï¿½ï¿½Êµï¿½ï¿½
+ *@segnoï¿½ï¿½ï¿½ÎºÅµï¿½ï¿½ï¿½ï¿½ï¿½
+ *@return:ï¿½ï¿½ï¿½Øµï¿½Ç°ï¿½ï¿½Ç°SITï¿½ï¿½ï¿½ï¿½ï¿½entryï¿½Ä¸ï¿½ï¿½ï¿½
  */
 static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 {
@@ -93,10 +93,10 @@ static void __mark_sit_entry_dirty(struct sit_info *sit_i, seg_t segno)
 
 /* Return amount of blocks which has been invalidated */
 /*
- *5 invalidate_delete_block:ÏÈÅĞ¶Ïµ±Ç°¿éÊÇ·ñÊÇ×îĞÂ°æ±¾µÄ¿é£¬Èç¹û²»ÊÇ£¬¸ù¾İ¿éµØÖ·»ñÈ¡¶ÎºÅ£¬Í¬Ê±½«¸Ã¶Î±ê¼ÇÎªÔà
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@addr:µ±Ç°¿éµÄµØÖ·
- *@return:·µ»ØÎŞĞ§µÄ¿éµÄÊıÁ¿
+ *5 invalidate_delete_block:ï¿½ï¿½ï¿½Ğ¶Ïµï¿½Ç°ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â°æ±¾ï¿½Ä¿é£¬ï¿½ï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½İ¿ï¿½ï¿½Ö·ï¿½ï¿½È¡ï¿½ÎºÅ£ï¿½Í¬Ê±ï¿½ï¿½ï¿½Ã¶Î±ï¿½ï¿½Îªï¿½ï¿½
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@addr:ï¿½ï¿½Ç°ï¿½ï¿½Äµï¿½Ö·
+ *@return:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  */
 int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 {
@@ -119,8 +119,8 @@ int invalidate_delete_block(struct hmfs_sb_info *sbi, block_t addr)
 }
 
 /*
- *6 init_min_max_mtime:ÏÈËø¶¨µ±Ç°entryµÄ±í£¬È»ºó±éÀúµ±Ç°³¬¼¶¿éÖĞËùÓĞµÄ¶Î£¬Í¬Ê±ÉèÖÃËùÓĞ¶ÎSITµÄ×î´ó¡¢×îĞ¡mtime
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
+ *6 init_min_max_mtime:ï¿½ï¿½ï¿½ï¿½Ç°entryï¿½Ä±?È»ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ĞµÄ¶Î£ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¶ï¿½SITï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¡mtime
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
  *
  */
 static void init_min_max_mtime(struct hmfs_sb_info *sbi)
@@ -143,10 +143,10 @@ static void init_min_max_mtime(struct hmfs_sb_info *sbi)
 	unlock_sentry(sit_i);
 }
 /*
- *7 update_sit_entry:¼ÇÂ¼µ±Ç°¶ÎµÄÓĞĞ§µÄ¿éÊı£¬Í¬Ê±¼ÇÂ¼µ±Ç°¶ÎµÄ¿ÕÏĞµÄºÍÔàµÄ´óĞ¡£¬²¢ÇÒ¸ù¾İĞÂµÄÓĞĞ§¿éSITentry£¬¸üĞÂµ±Ç°¶ÎµÄentryĞÅÏ¢
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@segno£º¶ÎºÅµÄÀàĞÍ
- *@del£º¶ÎÆ«ÒÆ
+ *7 update_sit_entry:ï¿½ï¿½Â¼ï¿½ï¿½Ç°ï¿½Îµï¿½ï¿½ï¿½Ğ§ï¿½Ä¿ï¿½ï¿½ï¿½Í¬Ê±ï¿½ï¿½Â¼ï¿½ï¿½Ç°ï¿½ÎµÄ¿ï¿½ï¿½ĞµÄºï¿½ï¿½ï¿½Ä´ï¿½Ğ¡ï¿½ï¿½ï¿½ï¿½ï¿½Ò¸ï¿½ï¿½ï¿½Âµï¿½ï¿½ï¿½Ğ§ï¿½ï¿½SITentryï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½Ç°ï¿½Îµï¿½entryï¿½ï¿½Ï¢
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@segnoï¿½ï¿½ï¿½ÎºÅµï¿½ï¿½ï¿½ï¿½ï¿½
+ *@delï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½
  */
 
 void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
@@ -172,8 +172,8 @@ void update_sit_entry(struct hmfs_sb_info *sbi, seg_t segno,
 }
 
 /*
- *8 reset_curseg:ÖØÖÃµ±Ç°¶ÎµÄÎ´·ÖÅä¿éµÄÆğÊ¼Î»ÖÃ
- *@seg_i:µ±Ç°¶ÎµÄ¶ÎºÅ
+ *8 reset_curseg:ï¿½ï¿½ï¿½Ãµï¿½Ç°ï¿½Îµï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
+ *@seg_i:ï¿½ï¿½Ç°ï¿½ÎµÄ¶Îºï¿½
  */
 static void reset_curseg(struct curseg_info *seg_i)
 {
@@ -183,11 +183,11 @@ static void reset_curseg(struct curseg_info *seg_i)
 }
 
 /*
- *9  __cal_page_addr:¸ù¾İ¶ÎºÅºÍ¿éÆ«ÒÆ£¬·µ»Øµ±Ç°mainareaµÄÆğÊ¼Î»ÖÃ
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@segno£ºµ±Ç°¶ÎµÄ¶ÎºÅ
- *@blkoff:¿éÆ«ÒÆ
- *@return:·µ»Øµ±Ç°mainareaµÄÆğÊ¼Î»ÖÃ
+ *9  __cal_page_addr:ï¿½ï¿½İ¶ÎºÅºÍ¿ï¿½Æ«ï¿½Æ£ï¿½ï¿½ï¿½ï¿½Øµï¿½Ç°mainareaï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@segnoï¿½ï¿½ï¿½ï¿½Ç°ï¿½ÎµÄ¶Îºï¿½
+ *@blkoff:ï¿½ï¿½Æ«ï¿½ï¿½
+ *@return:ï¿½ï¿½ï¿½Øµï¿½Ç°mainareaï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
  */
 inline block_t __cal_page_addr(struct hmfs_sb_info *sbi, seg_t segno,
 				int blkoff)
@@ -197,10 +197,10 @@ inline block_t __cal_page_addr(struct hmfs_sb_info *sbi, seg_t segno,
 					+ sbi->main_addr_start;
 }
 /*
- *10 cal_page_addr:¸ù¾İµ±Ç°¶ÎºÅºÍÒªĞ´µÄÏÂÒ»¿éÆ«ÒÆ¼ÆËãµ±Ç°Ò³µÄÆğÊ¼µØÖ·
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@seg_i:µ±Ç°¶ÎµÄ¶ÎºÅ
- *@return:¼ÆËãµ±Ç°Ò³µÄÆğÊ¼µØÖ·
+ *10 cal_page_addr:ï¿½ï¿½İµï¿½Ç°ï¿½ÎºÅºï¿½ÒªĞ´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Æ«ï¿½Æ¼ï¿½ï¿½ãµ±Ç°Ò³ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@seg_i:ï¿½ï¿½Ç°ï¿½ÎµÄ¶Îºï¿½
+ *@return:ï¿½ï¿½ï¿½ãµ±Ç°Ò³ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·
  */
 static inline unsigned long cal_page_addr(struct hmfs_sb_info *sbi,
 				struct curseg_info *seg_i)
@@ -215,15 +215,15 @@ static inline unsigned long cal_page_addr(struct hmfs_sb_info *sbi,
  * must be success (otherwise cause error)
  */
 /*
- *11 get_new_segment:±éÀúµ±Ç°³¬¼¶¿éÏÂËùÓĞ¶Î£¬´Ó¿ÕÏĞ¶ÎµÄbitmapÖĞ£¬»ñÈ¡µ±Ç°ĞÂµÄ¿ÕÏĞµÄ¶ÎµÄÎ»ÖÃ
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@newseg:¶ÎºÅµÄÀàĞÍ
- *@return:Ã¿¶Î¿ÕÏĞµÄÎ»ÖÃ
+ *11 get_new_segment:ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¶Î£ï¿½ï¿½Ó¿ï¿½ï¿½Ğ¶Îµï¿½bitmapï¿½Ğ£ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ÂµÄ¿ï¿½ï¿½ĞµÄ¶Îµï¿½Î»ï¿½ï¿½
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@newseg:ï¿½ÎºÅµï¿½ï¿½ï¿½ï¿½ï¿½
+ *@return:Ã¿ï¿½Î¿ï¿½ï¿½Ğµï¿½Î»ï¿½ï¿½
  */
 int get_new_segment(struct hmfs_sb_info *sbi, seg_t *newseg)
 {
 	/*
-	 * free_i:»ñÈ¡ÍêÈ«¿ÕÏĞµÄ¿éµÄÊµÀı£¨Ã»ÓĞÓĞĞ§µÄ¿é£©
+	 * free_i:ï¿½ï¿½È¡ï¿½ï¿½È«ï¿½ï¿½ï¿½ĞµÄ¿ï¿½ï¿½Êµï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½Ä¿é£©
 	 */
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	seg_t segno;
@@ -253,22 +253,22 @@ retry:
 	memset_nt(ssa, 0, HMFS_SUMMARY_BLOCK_SIZE);
 unlock:
 /*
- * unlock_write_segmap£ºËø¶¨ÒªĞ´µÄ¶Î
+ * unlock_write_segmapï¿½ï¿½ï¿½ï¿½ÒªĞ´ï¿½Ä¶ï¿½
  */
 	unlock_write_segmap(free_i);
 	return ret;
 }
 /*
- *12 move_to_new_segment:·µ»ØĞÂµÄ¶ÎµÄÆğÊ¼Î»ÖÃ
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@seg_i:»ñÈ¡µ±Ç°activeµÄ¶ÎÈÕÖ¾ĞÅÏ¢ÊµÀı
- *@return:·µ»Øµ±Ç°ĞÂµÄ¿ÕÏĞ¶ÎµÄÆğÊ¼Î»ÖÃ
+ *12 move_to_new_segment:ï¿½ï¿½ï¿½ï¿½ï¿½ÂµÄ¶Îµï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@seg_i:ï¿½ï¿½È¡ï¿½ï¿½Ç°activeï¿½Ä¶ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½Ï¢Êµï¿½ï¿½
+ *@return:ï¿½ï¿½ï¿½Øµï¿½Ç°ï¿½ÂµÄ¿ï¿½ï¿½Ğ¶Îµï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
  */
 static int move_to_new_segment(struct hmfs_sb_info *sbi,
 				struct curseg_info *seg_i)
 {
 	/*
-	 * »ñÈ¡µ±Ç°µÄ¶ÎºÅ
+	 * ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½Ä¶Îºï¿½
 	 */
 	seg_t segno = atomic_read(&seg_i->segno);
 	int ret = get_new_segment(sbi, &segno);
@@ -276,7 +276,7 @@ static int move_to_new_segment(struct hmfs_sb_info *sbi,
 	if (ret)
 		return ret;
 	/*
-	 * ´¦ÀíÏÂÒ»¸öÔ¤·ÖÅäµÄ¶Î
+	 * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½
 	 */
 	seg_i->next_segno = segno;
 	reset_curseg(seg_i);
@@ -284,17 +284,17 @@ static int move_to_new_segment(struct hmfs_sb_info *sbi,
 }
 /*
  *13 get_free_block:
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@seg_type:µ±Ç°¶ÎµÄÀàĞÍ
- *@sit_lock:¼ÇÂ¼µ±Ç°SIT±íÊÇ·ñËø¶¨
- *@return:·µ»Øµ±Ç°¿éµÄÒ³µÄÆğÊ¼Î»ÖÃ
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@seg_type:ï¿½ï¿½Ç°ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½
+ *@sit_lock:ï¿½ï¿½Â¼ï¿½ï¿½Ç°SITï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½
+ *@return:ï¿½ï¿½ï¿½Øµï¿½Ç°ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
  */
 static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type, 
 				bool sit_lock)
 {
 	block_t page_addr = 0;
 	/*
-	 * SIT±íµÄĞÅÏ¢
+	 * SITï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 	 */
 	struct sit_info *sit_i = SIT_I(sbi);
 	struct curseg_info *seg_i = &(CURSEG_I(sbi)[seg_type]);
@@ -303,11 +303,11 @@ static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type,
 	lock_curseg(seg_i);
 	
 	/*
-	 *ÅĞ¶Ïµ±Ç°¶ÎµÄÏÂÒ»¸ö¿éÆ«ÒÆÊÇ²»ÊÇÒÑ¾­ÊÇ¿éµÄ×îºó
+	 *ï¿½Ğ¶Ïµï¿½Ç°ï¿½Îµï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½
 	 */
 	if (seg_i->next_blkoff == HMFS_PAGE_PER_SEG) {
 		/*
-		 *Èç¹ûÉ¨µ½¿éµÄ¾¡Í·£¬ÔòÉ¨ÃèÏÂÒ»¸ö¿é
+		 *ï¿½ï¿½ï¿½É¨ï¿½ï¿½ï¿½ï¿½Ä¾ï¿½Í·ï¿½ï¿½ï¿½ï¿½É¨ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½
 		 */
 		ret = move_to_new_segment(sbi, seg_i);
 		if (ret) {
@@ -318,7 +318,7 @@ static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type,
 
 	page_addr = cal_page_addr(sbi, seg_i);
     /*
-     *Èç¹ûµ±Ç°¿éÎªÔà£¬£¬¸üĞÂµ±Ç°entryµÄÎ»ÖÃ
+     *ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Îªï¿½à£¬ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½Ç°entryï¿½ï¿½Î»ï¿½ï¿½
      */
 	if (sit_lock)
 		lock_sentry(sit_i);
@@ -327,7 +327,7 @@ static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type,
 	if (sit_lock)
 		unlock_sentry(sit_i);
    /*
-    * ¼ÌĞøÒÆ¶¯µ½ÏÂÃæactiveµÄ¿éµÄÆ«ÒÆÎ»ÖÃ
+    * ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½activeï¿½Ä¿ï¿½ï¿½Æ«ï¿½ï¿½Î»ï¿½ï¿½
     */
 	seg_i->next_blkoff++;
 
@@ -336,18 +336,18 @@ static block_t get_free_block(struct hmfs_sb_info *sbi, int seg_type,
 	return page_addr;
 }
 /*
- * 14 alloc_free_data_block:±éÀúµ±Ç°activeµÄÊı¾İ
- * @sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- * @return:±éÀúµ±Ç°ËùÓĞµÄ³¬¼¶¿é£¬ÒÀ´ÎÒÆµ½ÏÂÒ»¸öactiveµÄ¿é
+ * 14 alloc_free_data_block:ï¿½ï¿½ï¿½ï¿½Ç°activeï¿½ï¿½ï¿½ï¿½ï¿½
+ * @sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ * @return:ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ĞµÄ³ï¿½ï¿½ï¿½ï¿½é£¬ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½Ò»ï¿½ï¿½activeï¿½Ä¿ï¿½
  */
 block_t alloc_free_data_block(struct hmfs_sb_info * sbi)
 {
 	return get_free_block(sbi, CURSEG_DATA, true);
 }
 /*
- *15 alloc_free_node_block£º±éÀúµ±Ç°activeµÄnode
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@sit_lock£ºÒÀ´ÎÒÆµ½ÏÂÒ»¸öactiveµÄ¿é
+ *15 alloc_free_node_blockï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°activeï¿½ï¿½node
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@sit_lockï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½Ò»ï¿½ï¿½activeï¿½Ä¿ï¿½
  */
 block_t alloc_free_node_block(struct hmfs_sb_info * sbi, bool sit_lock)
 {
@@ -355,9 +355,9 @@ block_t alloc_free_node_block(struct hmfs_sb_info * sbi, bool sit_lock)
 }
 
 /*
- *16 recovery_sit_entries:´ÓÈÕÖ¾¼ÇÂ¼ÖĞ»Ö¸´SITÈë¿Ú¿éµÄĞÅÏ¢
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@hmfs_cp:¹ÜÀí¼ì²éµãµÄÊµÀı
+ *16 recovery_sit_entries:ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½Â¼ï¿½Ğ»Ö¸ï¿½SITï¿½ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½Ï¢
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@hmfs_cp:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
  */
 void recovery_sit_entries(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *hmfs_cp)
@@ -367,7 +367,7 @@ void recovery_sit_entries(struct hmfs_sb_info *sbi,
 	struct hmfs_sit_entry *sit_entry;
 	block_t seg_addr;
 	/*
-	 * ¶¨Òå¶ÎºÅµÄÀàĞÍ
+	 * ï¿½ï¿½ï¿½ï¿½ÎºÅµï¿½ï¿½ï¿½ï¿½ï¿½
 	 */
 	seg_t sit_segno, segno;
 
@@ -375,13 +375,13 @@ void recovery_sit_entries(struct hmfs_sb_info *sbi,
 	nr_segs = hmfs_cp->nr_segs;
 	for (i = 0; i < nr_segs; i++) {
 		/*
-		 *ÒÀ´Î×ª»¯»ñÈ¡ÁËSITÈÕÖ¾µÄ¶ÎºÅ£¬¼ÆËãµ±Ç°mainareaµÄ¶ÎµØÖ·
+		 *ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½SITï¿½ï¿½Ö¾ï¿½Ä¶ÎºÅ£ï¿½ï¿½ï¿½ï¿½ãµ±Ç°mainareaï¿½Ä¶Îµï¿½Ö·
 		 */
 		sit_segno = le32_to_cpu(hmfs_cp->sit_logs[i]);
 		seg_addr = __cal_page_addr(sbi, sit_segno, 0);
 		sit_log = ADDR(sbi, seg_addr);
 		/*
-		 * ±éÀúÍêµ±Ç°ËùÓĞµÄ¼ì²éµãÖ¸Ïò¶Î£¬»ñÈ¡µ±Ç°SITµÄÈë¿ÚµØÖ·£¬ÓÃÈÕÖ¾Ê±¼äµÈĞÅÏ¢¸üĞÂentryĞÅÏ¢
+		 * ï¿½ï¿½ï¿½ï¿½ï¿½êµ±Ç°ï¿½ï¿½ï¿½ĞµÄ¼ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½Î£ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ç°SITï¿½ï¿½ï¿½ï¿½Úµï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Ê±ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½entryï¿½ï¿½Ï¢
 		 */
 		while (num < nr_logs) {
 			segno = le32_to_cpu(sit_log->segno);
@@ -397,25 +397,25 @@ void recovery_sit_entries(struct hmfs_sb_info *sbi,
 	}
 }
 /*
- *17 flush_sit_entries_rmcp:ÔÚÉ¾³ıÒ»¸ö¼ì²éµãºó¸üĞÂSIT areaµÄĞÅÏ¢£¬Ë¢ĞÂ¿ÕÏĞSITĞÅÏ¢
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
+ *17 flush_sit_entries_rmcp:ï¿½ï¿½É¾ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½SIT areaï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ë¢ï¿½Â¿ï¿½ï¿½ï¿½SITï¿½ï¿½Ï¢
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
  */
 /* Update SIT area after deleting a checkpoint */
 void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
 	/*
-	 *¼ÇÂ¼µ±Ç°³¬¼¶¿éÖĞÖ÷´æÇøÖ×¿éµÄ¸öÊı
+	 *ï¿½ï¿½Â¼ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¿ï¿½Ä¸ï¿½ï¿½ï¿½
 	 */
 	pgc_t total_segs = TOTAL_SEGS(sbi);
 	struct hmfs_sit_entry *sit_entry;
 	struct seg_entry *seg_entry;
 	/*
-	 * »ñÈ¡µ±Ç°ÔàµÄentryµÄbitmap
+	 * ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½entryï¿½ï¿½bitmap
 	 */
 	unsigned long *bitmap = sit_i->dirty_sentries_bitmap;
 	/*
-	 *»ñÈ¡Ä³¸ö¶ÎÀïÃæÖ¸Ïò4KB´óĞ¡µÄ¿éµÄÈë¿ÚÒÔ¼°Ã»ÓĞÓĞĞ§¿éµÄ¶ÎµÄÊµÀı
+	 *ï¿½ï¿½È¡Ä³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½4KBï¿½ï¿½Ğ¡ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½Ã»ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½Ä¶Îµï¿½Êµï¿½ï¿½
 	 */
 	struct hmfs_summary *summary;
 	struct free_segmap_info *free_i = FREE_I(sbi);
@@ -426,7 +426,7 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 		offset = find_next_bit(bitmap, total_segs, offset);
 		if (offset < total_segs) {
 			/*
-			 *¸ù¾İÆ«ÒÆºÍ³¬¼¶¿éĞÅÏ¢»ñÈ¡¶ÎÈë¿ÚSIT»º´æÈë¿ÚµØÖ·
+			 *ï¿½ï¿½ï¿½Æ«ï¿½ÆºÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½SITï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ö·
 			 */
 			seg_entry = get_seg_entry(sbi, offset);
 			sit_entry = get_sit_entry(sbi, offset);
@@ -437,7 +437,7 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 			 * scaning SSA area
 			 */
 			/*
-			 * Èç¹ûÏµÍ³±ÀÀ££¬Í¨¹ıÉ¨ÃèSSAÇøÓò¼ÆËãÓĞĞ§¿éµÄ¸öÊı
+			 * ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½É¨ï¿½ï¿½SSAï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½
 			 */
 			if (sbi->recovery_doing) {
 				seg_entry->valid_blocks = 0;
@@ -448,7 +448,7 @@ void flush_sit_entries_rmcp(struct hmfs_sb_info *sbi)
 				}
 			}
 			/*
-			 *Èç¹û¶ÎµÄÈë¿Ú²»ÊÇÓĞĞ§¿é£¬Ôò¼ÇÂ¼¿ÕÏĞ¶ÎµÄÊıÁ¿¼Ó1
+			 *ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½é£¬ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ğ¶Îµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1
 			 */
 			if (!seg_entry->valid_blocks) {
 				lock_write_segmap(free_i);
@@ -567,9 +567,9 @@ retry:
 	memset_nt(sit_i->dirty_sentries_bitmap, 0, sit_i->bitmap_size);
 }
 /*
- *19 __set_test_and_inuse:´¦Àí²¢ÉèÖÃµ±Ç°¿ÕÏĞ¶ÎÎªÎ´Ê¹ÓÃ¹ı
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
- *@segno:¶ÎºÅµÄÀàĞÍ
+ *19 __set_test_and_inuse:ï¿½ï¿½ï¿½?ï¿½ï¿½ï¿½Ãµï¿½Ç°ï¿½ï¿½ï¿½Ğ¶ï¿½ÎªÎ´Ê¹ï¿½Ã¹ï¿½
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
+ *@segno:ï¿½ÎºÅµï¿½ï¿½ï¿½ï¿½ï¿½
  */
 static inline void __set_test_and_inuse(struct hmfs_sb_info *sbi,
 				seg_t segno)
@@ -588,13 +588,13 @@ static inline void __set_test_and_inuse(struct hmfs_sb_info *sbi,
  */
 /*
  *20 build_sit_info:
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
  *@return:
  */
 static int build_sit_info(struct hmfs_sb_info *sbi)
 {
 	/*
-	 * ¶¨Òå¼ì²éµã¹ÜÀíÆ÷µÄÊµÀıºÍ¼ì²éµãµÄÊµÀı
+	 * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
 	 */
 	struct hmfs_cm_info *cm_i = CM_I(sbi);
 	struct hmfs_checkpoint *hmfs_cp = cm_i->last_cp_i->cp;
@@ -602,14 +602,14 @@ static int build_sit_info(struct hmfs_sb_info *sbi)
 	unsigned long long bitmap_size;
 
 	/*
-	 *ÎªSITĞÅÏ¢±í·ÖÅäÄÚ´æ
+	 *ÎªSITï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½
 	 */
 	/* allocate memory for SIT information */
 	sit_i = kzalloc(sizeof(struct sit_info), GFP_KERNEL);
 	if (!sit_i)
 		return -ENOMEM;
     /*
-     * »ñÈ¡¶Î¹ÜÀíÆ÷ÏÂÕû¸ö¶ÎµÄĞÅÏ¢
+     * ï¿½ï¿½È¡ï¿½Î¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½Ï¢
      */
 	SM_I(sbi)->sit_info = sit_i;
 
@@ -617,7 +617,7 @@ static int build_sit_info(struct hmfs_sb_info *sbi)
 	if (!sit_i->sentries)
 		return -ENOMEM;
     /*
-     * ³õÊ¼»¯µ±Ç°ÔàµÄ¶ÎµÄbitmap
+     * ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Ä¶Îµï¿½bitmap
      */
 	bitmap_size = hmfs_bitmap_size(TOTAL_SEGS(sbi));
 	sit_i->bitmap_size = bitmap_size;
@@ -630,12 +630,12 @@ static int build_sit_info(struct hmfs_sb_info *sbi)
 	sit_i->dirty_sentries = 0;
 
 	/*
-	 * ¸üĞÂÎÄ¼şÏµÍ³µÄÉú´æÊ±¼äºÍ×°ÔØÊ±¼ä
+	 * ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½×°ï¿½ï¿½Ê±ï¿½ï¿½
 	 */
 	sit_i->elapsed_time = le32_to_cpu(hmfs_cp->elapsed_time);
 	sit_i->mounted_time = CURRENT_TIME_SEC.tv_sec;
 	/*
-	 * ±£»¤SITµÄ»º´æ
+	 * ï¿½ï¿½ï¿½ï¿½SITï¿½Ä»ï¿½ï¿½ï¿½
 	 */
 	mutex_init(&sit_i->sentry_lock);
 	return 0;
@@ -643,12 +643,12 @@ static int build_sit_info(struct hmfs_sb_info *sbi)
 
 /*
  *free_prefree_segments:
- *@sbi:Ö¸Ïò³¬¼¶¿éĞÅÏ¢µÄÖ¸ÕëÊµÀı
+ *@sbi:Ö¸ï¿½ò³¬¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½Êµï¿½ï¿½
  */
 void free_prefree_segments(struct hmfs_sb_info *sbi)
 {
 	/*
-	 * ¶¨Òå¿ÕÏĞ¿éµÄÊµÀı
+	 * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¿ï¿½ï¿½Êµï¿½ï¿½
 	 */
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	int total_segs = TOTAL_SEGS(sbi);
@@ -663,13 +663,13 @@ void free_prefree_segments(struct hmfs_sb_info *sbi)
 			break;
 		clear_bit(segno, bitmap);
 		/*
-		 *Ë¢ĞÂËùÓĞ¿ÕÏĞ¶ÎµÄĞÅÏ¢£¬²¢ÇÒ¼ÆÊı¼Ó1
+		 *Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¿ï¿½ï¿½Ğ¶Îµï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Ò¼ï¿½ï¿½ï¿½ï¿½1
 		 */
 		if (test_and_clear_bit(segno, free_i->free_segmap)) {
 			free_i->free_segments++;
 		}
 		/*
-		 *¸ù¾İµ±Ç°¶ÎºÅ»ñÈ¡SSAĞÅÏ¢
+		 *ï¿½ï¿½İµï¿½Ç°ï¿½ÎºÅ»ï¿½È¡SSAï¿½ï¿½Ï¢
 		 */
 		ssa = get_summary_block(sbi, segno);
 		memset_nt(ssa, 0, HMFS_SUMMARY_BLOCK_SIZE);
@@ -677,19 +677,33 @@ void free_prefree_segments(struct hmfs_sb_info *sbi)
 	}
 	unlock_write_segmap(free_i);
 }
-
+/*
+ *cai21:build_free_segmap:ç”Ÿæˆç©ºé—²æ®µçš„è‹¥å¹²æ“ä½œ
+ *@sbi:æŒ‡å‘hmfsè¶…çº§å—ä¿¡æ¯çš„å®ä¾‹
+ *@return:æ“ä½œæ­£ç¡®è¿”å›0ï¼Œå¦åˆ™è¿”å›è¶…å‡ºå†…å­˜èŒƒå›´
+ */
 static int build_free_segmap(struct hmfs_sb_info *sbi)
 {
 	struct free_segmap_info *free_i;
 	unsigned int bitmap_size;
 
 	/* allocate memory for free segmap information */
+	/*
+	 * å›æ”¶GFP_KERNELç±»å‹çš„å†…å­˜ç©ºé—´
+	 */
 	free_i = kzalloc(sizeof(struct free_segmap_info), GFP_KERNEL);
 	if (!free_i)
+		/*
+		 * è¶…å‡ºå†…å­˜èŒƒå›´
+		 */
 		return -ENOMEM;
-
+    /*
+     *å®ä¾‹åŒ–å½“å‰è¶…çº§å—å®ä¾‹ä¸‹çš„æ®µç®¡ç†å™¨ä¿¡æ¯ï¼Œå°†ç©ºæ®µä¿¡æ¯ç½®ä¸ºå›æ”¶åçš„ç©ºé—´
+     */
 	SM_I(sbi)->free_info = free_i;
-
+    /*
+     *æ±‚main areaæ®µçš„å¤§å°ï¼ŒåŒæ—¶å›æ”¶è¯¥æ®µå¤§å°ï¼ŒåŒæ—¶å®ä¾‹åŒ–ç©ºæ®µæŒ‡é’ˆå®ä¾‹ä¸­çš„ä½å›¾ä¿¡æ¯ï¼Œå¦‚æœæœ‰é¢„ç•™ç©ºé—´ï¼Œè¿”å›é¢„ç•™ç©ºé—´
+     */
 	bitmap_size = hmfs_bitmap_size(TOTAL_SEGS(sbi));
 	free_i->free_segmap = kmalloc(bitmap_size, GFP_KERNEL);
 	if (!free_i->free_segmap) {
@@ -700,10 +714,16 @@ static int build_free_segmap(struct hmfs_sb_info *sbi)
 		goto free_segmap;
 
 	/* set all segments as dirty temporarily */
+	/*
+	 * å°†æ‰€æœ‰çš„ç©ºé—²æ®µæš‚æ—¶ç½®ä¸ºè„
+	 */
 	memset(free_i->free_segmap, 0xff, bitmap_size);
 	memset(free_i->prefree_segmap, 0, bitmap_size);
 
 	/* init free segmap information */
+	/*
+	 *åˆå§‹åŒ–ç©ºé—²æ®µçš„ä¿¡æ¯ï¼ŒåŒæ—¶åˆå§‹åŒ–è¯»å†™çš„é”
+	 */
 	free_i->free_segments = 0;
 	rwlock_init(&free_i->segmap_lock);
 	return 0;
