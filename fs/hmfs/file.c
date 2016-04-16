@@ -833,7 +833,7 @@ int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
  * in its parent indirect node to be NULL_ADDR
  */
 /*
- * 缩短dn指向的direct node中的数据
+ * 截断dn指向的direct node中的数据
  * 检查dn->node_block中的每个地址指向的块是否为最新版本，若不是则删除无效块
  * 再将删除后的有效块数量更新到inode和超级块中，并将inode标记为脏
  */
@@ -856,7 +856,11 @@ void truncate_data_blocks(struct dnode_of_data *dn)
 		mark_inode_dirty(dn->inode);
 	}
 }
-
+/*
+ * 将文件某个偏移量from所对应块在from之后的内容清零（只清除该块内容）
+ * @inode对应文件
+ * @from对应在文件中的偏移量
+ */
 static void truncate_partial_data_page(struct inode *inode, block_t from)
 {
 	unsigned offset = from & (HMFS_PAGE_SIZE - 1);
@@ -867,7 +871,11 @@ static void truncate_partial_data_page(struct inode *inode, block_t from)
 			HMFS_PAGE_SIZE, true);
 	return;
 }
-
+/*
+ * 清除普通文件某个偏移量之后的全部内容
+ * @inode对应文件
+ * @from对应偏移量
+ */
 static int __truncate_blocks(struct inode *inode, block_t from)
 {
 	struct dnode_of_data dn;
@@ -897,12 +905,22 @@ static int __truncate_blocks(struct inode *inode, block_t from)
 	}
 
 free_next:
+/*
+ * 先调用truncate_inode_blocks删除偏移量之后的所有块内容
+ * 再调用truncate_partial_data_page删除偏移量所在的块在其之后的内容
+ */
 	err = truncate_inode_blocks(inode, free_from);
 	truncate_partial_data_page(inode, from);
 
 	return err;
 }
-
+/*
+ * 清除文件某个偏移量之后的全部内容
+ * @inode对应文件
+ * @from对应偏移量
+ * 若为内嵌型文件直接在本函数处理
+ * 否则调用__truncate_blocks处理普通文件
+ */
 static int truncate_blocks(struct inode *inode, block_t from)
 {
 	struct hmfs_inode *inode_block;
@@ -919,7 +937,10 @@ static int truncate_blocks(struct inode *inode, block_t from)
 
 	return __truncate_blocks(inode, from);
 }
-
+/*
+ * 清除@inode对应文件在i_size之后的内容
+ * 再修改i_mtime及i_ctime并将inode标记为脏
+ */
 void hmfs_truncate(struct inode *inode)
 {
 	if (!(S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode)
