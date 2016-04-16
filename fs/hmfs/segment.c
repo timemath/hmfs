@@ -765,7 +765,7 @@ free_i:
 }
 
 /*
- *cc23 build_curseg:
+ *cc23 build_curseg:生成active段缓存信息
  *@sbi:指向hmfs超级块信息的实例
  *@return:操作正确返回0，否则返回超出内存范围
  */
@@ -875,8 +875,15 @@ static void init_free_segmap(struct hmfs_sb_info *sbi)
 		__set_test_and_inuse(sbi, atomic_read(&curseg_t[i].segno));
 }
 
+/*
+ *26cc init_dirty_segmap:初始化脏的段的信息
+ *@sbi:指向hmfs超级块信息的实例
+ */
 static void init_dirty_segmap(struct hmfs_sb_info *sbi)
 {
+	/*
+	 * 初始化既有有效块又有无效的块的段的实例及信息，活跃的日志段
+	 */
 	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	struct curseg_info *curseg_t = CURSEG_I(sbi);
@@ -886,6 +893,9 @@ static void init_dirty_segmap(struct hmfs_sb_info *sbi)
 
 	while (1) {
 		/* find dirty segmap based on free segmap */
+		/*
+		 *基于空闲段找到脏的段，同时根据SIT段缓存记录有效块的数量
+		 */
 		segno = find_next_inuse(free_i, total_segs, offset);
 		if (segno >= total_segs)
 			break;
@@ -893,25 +903,41 @@ static void init_dirty_segmap(struct hmfs_sb_info *sbi)
 		valid_blocks = get_seg_entry(sbi, segno)->valid_blocks;
 		if (valid_blocks >= HMFS_PAGE_PER_SEG || !valid_blocks)
 			continue;
+		/*
+		 * 同时获取脏的段的bitmap
+		 */
 		test_and_set_bit(segno, dirty_i->dirty_segmap);
 	}
 
 	/* Clear the current segments */
+	/*
+	 *清楚当前脏的段的位图信息
+	 */
 	for (i = 0; i < NR_CURSEG_TYPE; i++)
 		clear_bit(atomic_read(&curseg_t[i].segno), dirty_i->dirty_segmap);
 }
-
+/*
+ *27cc build_dirty_segmap:处理脏的段的位图信息
+ *@sbi:指向hmfs超级块信息的实例
+ *@return:异常报错超出内存，正常执行返回0
+ */
 static int build_dirty_segmap(struct hmfs_sb_info *sbi)
 {
 	struct dirty_seglist_info *dirty_i;
 	unsigned int bitmap_size;
 
+	/*
+	 * 回收脏的段所占的空间，同时设置当前脏段的信息
+	 */
 	dirty_i = kzalloc(sizeof(struct dirty_seglist_info), GFP_KERNEL);
 	if (!dirty_i)
 		return -ENOMEM;
 
 	SM_I(sbi)->dirty_info = dirty_i;
 
+	/*
+	 * 回收脏的段的位图所占的空间，同时初始化葬断脏段的信息
+	 */
 	bitmap_size = (BITS_TO_LONGS(TOTAL_SEGS(sbi)) * sizeof(unsigned long));
 
 	dirty_i->dirty_segmap = kzalloc(bitmap_size, GFP_KERNEL);
@@ -922,25 +948,44 @@ static int build_dirty_segmap(struct hmfs_sb_info *sbi)
 	init_dirty_segmap(sbi);
 	return 0;
 }
-
+/*
+ *cc8 build_segment_manager:处理段管理器的信息
+ *@sbi:指向hmfs超级块信息的实例
+ *@return:
+ */
 int build_segment_manager(struct hmfs_sb_info *sbi)
 {
+	/*
+	 *获取当前超级块的物理地址，同时初始化段管理器的实例
+	 */
 	struct hmfs_super_block *raw_super = HMFS_RAW_SUPER(sbi);
 	struct hmfs_sm_info *sm_info;
 	int err;
 	pgc_t user_segments, main_segments;
 
+	/*
+	 *回收段管理器的内存信息
+	 */
 	sm_info = kzalloc(sizeof(struct hmfs_sm_info), GFP_KERNEL);
 	if (!sm_info)
 		return -ENOMEM;
 
 	/* init sm info */
+	/*
+	 * 初始化段管理器的信息，例如段的总数，main area段数
+	 */
 	sbi->sm_info = sm_info;
 	sm_info->segment_count = le64_to_cpu(raw_super->segment_count);
 	main_segments = le64_to_cpu(raw_super->segment_count_main);
 	sm_info->main_segments = main_segments;
+	/*
+	 * main area区预先给user分区的段数和其他段数
+	 */
 	user_segments = sm_info->main_segments * (100 - DEF_OP_SEGMENTS) / 100;
 	sm_info->ovp_segments = sm_info->main_segments - user_segments;
+	/*
+	 *定义无效的块数的上限以及空闲块的上限，以及在危急情况下空闲块的上限
+	 */
 	sm_info->limit_invalid_blocks = main_segments * HMFS_PAGE_PER_SEG
 			* LIMIT_INVALID_BLOCKS / 100;
 	sm_info->limit_free_blocks = main_segments * HMFS_PAGE_PER_SEG 
@@ -948,6 +993,9 @@ int build_segment_manager(struct hmfs_sb_info *sbi)
 	sm_info->severe_free_blocks = main_segments * HMFS_PAGE_PER_SEG 
 			* SEVERE_FREE_BLOCKS / 100;
 
+	/*
+	 *生成SIT信息，空闲段位图信息等
+	 */
 	err = build_sit_info(sbi);
 	if (err)
 		return err;
@@ -959,6 +1007,9 @@ int build_segment_manager(struct hmfs_sb_info *sbi)
 		return err;
 
 	/* reinit free segmap based on SIT */
+	/*
+	 * 基于SIT表信息，重新初始化空闲段的位图，脏的段的位图信息
+	 */
 	build_sit_entries(sbi);
 
 	init_free_segmap(sbi);
@@ -969,29 +1020,49 @@ int build_segment_manager(struct hmfs_sb_info *sbi)
 	init_min_max_mtime(sbi);
 	return 0;
 }
-
+/*
+ *cc29 destroy_dirty_segmap:销毁脏的段的位图信息
+ *@sbi:指向hmfs超级块信息的实例
+ */
 static void destroy_dirty_segmap(struct hmfs_sb_info *sbi)
 {
+	/*
+	 * 初始化脏段的信息
+	 */
 	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
 
 	if (!dirty_i)
 		return;
 
+	/*
+	 * 释放脏段的位图信息，并将脏段的信息置为空
+	 */
 	kfree(dirty_i->dirty_segmap);
 
 	SM_I(sbi)->dirty_info = NULL;
 	kfree(dirty_i);
 }
 
+/*
+ *cc30 destroy_curseg:销毁当前active的段信息
+ *@sbi:指向hmfs超级块信息的实例
+ */
 static void destroy_curseg(struct hmfs_sb_info *sbi)
 {
 	struct curseg_info *array = SM_I(sbi)->curseg_array;
 
 	if (!array)
 		return;
+	/*
+	 *将脏的active段置为空
+	 */
 	SM_I(sbi)->curseg_array = NULL;
 	kfree(array);
 }
+/*
+ *31cc destroy_free_segmap:
+ *@sbi:指向hmfs超级块信息的实例
+ */
 
 static void destroy_free_segmap(struct hmfs_sb_info *sbi)
 {
@@ -999,30 +1070,51 @@ static void destroy_free_segmap(struct hmfs_sb_info *sbi)
 
 	if (!free_i)
 		return;
+	/*
+	 * 释放空段及预分配的空段的信息
+	 */
+
 	SM_I(sbi)->free_info = NULL;
 	kfree(free_i->free_segmap);
 	kfree(free_i->prefree_segmap);
 	kfree(free_i);
 }
+/*
+ * cc32 destroy_sit_info:
+ * @sbi:指向hmfs超级块信息的实例
+ */
 
 static void destroy_sit_info(struct hmfs_sb_info *sbi)
 {
+	/*
+	 *获取SIT信息表的实例
+	 */
 	struct sit_info *sit_i = SIT_I(sbi);
 
 	if (!sit_i)
 		return;
 
+	/*
+	 * 释放SIT表的段缓存对象和entry位图对象，同时将SIT信息表内容置为空
+	 */
 	vfree(sit_i->sentries);
 	kfree(sit_i->dirty_sentries_bitmap);
 
 	SM_I(sbi)->sit_info = NULL;
 	kfree(sit_i);
 }
+/*
+ *cc33: destroy_segment_manager:释放段管理器
+ *@sbi:指向hmfs超级块信息的实例
+ */
 
 void destroy_segment_manager(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_sm_info *sm_info = SM_I(sbi);
 	
+	/*
+	 * 释放段管理器，同时将段管理器的信息置为空
+	 */
 	destroy_dirty_segmap(sbi);
 	destroy_curseg(sbi);
 	destroy_free_segmap(sbi);
@@ -1030,16 +1122,30 @@ void destroy_segment_manager(struct hmfs_sb_info *sbi)
 	sbi->sm_info = NULL;
 	kfree(sm_info);
 }
+/*
+ * cc34:get_summary_block：返回指定块的entry的入口地址
+ * @sbi:指向hmfs超级块信息的实例
+ * @return:返回入口地址
+ */
 
 struct hmfs_summary_block *get_summary_block(struct hmfs_sb_info *sbi,
 				seg_t segno)
 {
+	/*
+	 *总结块，获取SSA entry块的地址
+	 */
 	struct hmfs_summary_block *summary_blk;
 	
 	summary_blk = HMFS_SUMMARY_BLOCK(sbi->ssa_entries);
 	return &summary_blk[segno];
 }
 
+/*
+ *cc35: get_summary_by_addr
+ *@sbi:指向hmfs超级块信息的实例
+ *@blk_addr
+ *@return:返回主存开始地址
+ */
 struct hmfs_summary *get_summary_by_addr(struct hmfs_sb_info *sbi,
 				block_t blk_addr)
 {
@@ -1047,6 +1153,9 @@ struct hmfs_summary *get_summary_by_addr(struct hmfs_sb_info *sbi,
 	unsigned int blkoff;
 	struct hmfs_summary_block *summary_blk = NULL;
 
+	/*
+	 *根据当前超级块的SSA入口地址
+	 */
 	segno = GET_SEGNO(sbi, blk_addr);
 	blkoff = GET_SEG_OFS(sbi, blk_addr);
 	summary_blk = get_summary_block(sbi, segno);
