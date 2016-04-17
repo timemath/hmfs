@@ -527,6 +527,7 @@ next:
 }
 /*
  *cc10 move_node_block:移动node块信息
+ *@sbi:指向超级块信息的指针实例
  *@src_segno：源段号类型
  *@src_sum：源summary信息
  */
@@ -589,6 +590,7 @@ next:
 }
 /*
  *cc11 move_nat_block:移动NAT块
+ *@sbi:指向超级块信息的指针实例
  *@src_segno：源段号类型
  *@src_sum：源summary信息
  */
@@ -659,6 +661,7 @@ next:
 /* Orphan blocks is not shared */
 /*
  *cc12 move_orphan_block:移动孤立的块
+ *@sbi:指向超级块信息的指针实例
  *@src_segno：源段号类型
  *@src_sum：源summary信息
  */
@@ -680,7 +683,12 @@ static void move_orphan_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 
 	update_dest_summary(src_sum, args.dest_sum);
 }
-
+/*
+ *cc13 move_checkpoint_block:迁移检查点块
+ *@sbi:指向超级块信息的指针实例
+ *@src_segno：源段号类型
+ *@src_sum：源summary信息
+ */
 static void move_checkpoint_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 				int src_off, struct hmfs_summary *src_sum)
 {
@@ -693,18 +701,30 @@ static void move_checkpoint_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 
 	prepare_move_argument(&args, sbi, src_segno, src_off, src_sum,
 			TYPE_NODE);
+	/*
+	 *获取当前检查点信息
+	 */
 
 	cp_i = get_checkpoint_info(sbi, args.start_version, false);
 	hmfs_bug_on(sbi, !cp_i);
 
 	this_cp = HMFS_CHECKPOINT(args.src);
+	/*
+	 * 分别获取前一个和下一个检查点的地址，并用指针指向她们
+	 */
 	next_cp = ADDR(sbi, le64_to_cpu(this_cp->next_cp_addr));
 	prev_cp = ADDR(sbi, le64_to_cpu(this_cp->prev_cp_addr));
 
+	/*
+	 *将前后检查点的地址信息放入目标地址中
+	 */
 	hmfs_memcpy_atomic(&next_cp->prev_cp_addr, &args.dest_addr, 8);
 	hmfs_memcpy_atomic(&prev_cp->next_cp_addr, &args.dest_addr, 8);
 	cp_i->cp = HMFS_CHECKPOINT(args.dest);
 	
+	/*
+	 *遍历要在两个孤立块中写的地址，同时对孤立地址也写到目的地址中
+	 */
 	for (i = 0; i < NUM_ORPHAN_BLOCKS; i++) {
 		orphan_addr = le64_to_cpu(this_cp->orphan_addrs[i]);
 		if (orphan_addr == NULL_ADDR)
@@ -716,20 +736,35 @@ static void move_checkpoint_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 	update_dest_summary(src_sum, args.dest_sum);
 }
 
+/*
+ *cc14 garbage_collect:进行垃圾收集
+ *@sbi:指向超级块信息的指针实例
+ *@src_segno：源段号类型
+ *@segno:段号的类型
+ */
 static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 {
 	int off = 0;
 	struct hmfs_cm_info *cm_i = CM_I(sbi);
 	bool is_current, none_valid;
 	nid_t nid;
+	/*
+	 *定义summary的块的实例
+	 */
 	struct hmfs_summary_block *sum_blk;
 	struct hmfs_summary *sum;
 
+	/*
+	 * 判断当前段中是否有有效块
+	 */
 	none_valid = !get_seg_entry(sbi, segno)->valid_blocks;
 
 	if (none_valid)
 		goto recycle;
 
+	/*
+	 * 返回summary入口地址
+	 */
 	sum_blk = get_summary_block(sbi, segno);
 	sum = sum_blk->entries;
 
@@ -742,6 +777,9 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 		 * 	- invalid blocks in older version
 		 * 	- newest blocks in newest version(checkpoint is not written)
 		 */
+		/*
+		 * 如果是旧版本的无效块，或者最新版本中最新的块(即检查点还未完成则不清理)
+		 */
 		if (!get_summary_valid_bit(sum) && !is_current)
 			continue;
 
@@ -752,6 +790,9 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 			}
 		}
 
+		/*
+		 *根据summaryr入口地址的信息获取summary表的类型，并且在清理段之前作相应的转移工作，比如迁移有效的块和数据
+		 */
 		hmfs_bug_on(sbi, get_summary_valid_bit(sum) && is_current);
 		switch (get_summary_type(sum)) {
 		case SUM_TYPE_DATA:
@@ -762,18 +803,30 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 			break;
 		case SUM_TYPE_INODE:
 		case SUM_TYPE_DN:
+			/*
+			 *如果是不直接的块进行节点迁移处理
+			 */
 		case SUM_TYPE_IDN:
 			move_node_block(sbi, segno, off, sum);
 			break;
 		case SUM_TYPE_NATN:
+			/*
+			 * 如果是NAT的数据块，也进行相应移动NAT块的处理
+			 */
 		case SUM_TYPE_NATD:
 			hmfs_bug_on(sbi, is_current);
 			move_nat_block(sbi, segno, off, sum);
 			continue;
+			/*
+			 *处理迁移孤立的块
+			 */
 		case SUM_TYPE_ORPHAN:
 			hmfs_bug_on(sbi, is_current);
 			move_orphan_block(sbi, segno, off, sum);
 			continue;
+			/*
+			 * 处理进行检查点迁移的块
+			 */
 		case SUM_TYPE_CP:
 			hmfs_bug_on(sbi, is_current);
 			move_checkpoint_block(sbi, segno, off, sum);
@@ -785,9 +838,16 @@ static void garbage_collect(struct hmfs_sb_info *sbi, seg_t segno)
 	}
 
 recycle:
+/*
+ *回收无效的块
+ */
 	recycle_segment(sbi, segno, none_valid);
 }
-
+/*
+ *hmfs_gc:
+ *@sbi:指向超级块信息的指针实例
+ *@gc_type:垃圾回收的类型
+ */
 int hmfs_gc(struct hmfs_sb_info *sbi, int gc_type)
 {
 	int ret = -1;
@@ -796,6 +856,9 @@ int hmfs_gc(struct hmfs_sb_info *sbi, int gc_type)
 	bool do_cp = false;
 	int total_segs = TOTAL_SEGS(sbi);
 	int time_retry = 0;
+	/*
+	 * 定义最大的要尝试回收的段数
+	 */
 	int max_retry = (total_segs + MAX_SEG_SEARCH - 1) / MAX_SEG_SEARCH;
 
 	hmfs_dbg("Enter GC\n");
@@ -803,9 +866,15 @@ int hmfs_gc(struct hmfs_sb_info *sbi, int gc_type)
 	if (!(sbi->sb->s_flags & MS_ACTIVE))
 		goto out;
 
+	/*
+	 *设置文件系统收集的类型
+	 */
 	if (hmfs_cp->state == HMFS_NONE)
 		set_fs_state(hmfs_cp, HMFS_GC);
 
+	/*
+	 * 处理垃圾收集的类型是BG或者没有足够的空闲的段
+	 */
 	if (gc_type == BG_GC && has_not_enough_free_segs(sbi)) {
 		gc_type = FG_GC;
 	}
@@ -814,6 +883,9 @@ gc_more:
 	hmfs_dbg("Before get victim:%ld %ld %ld\n", (unsigned long)total_valid_blocks(sbi),
 			(unsigned long)CM_I(sbi)->alloc_block_count, 
 			(unsigned long)CM_I(sbi)->valid_block_count);
+	/*
+	 * 获取段里面victim的块
+	 */
 	if (!get_victim(sbi, &segno, gc_type))
 		goto out;
 	ret = 0;
@@ -826,6 +898,9 @@ gc_more:
 	 * need to set it as PREFREE. And we could reuse it right now, which
 	 * could improve GC efficiency
 	 */
+	/*
+	 *根据段的入口块获取有效的块数，垃圾收集时的日志域加1，已经收集的段数也加1
+	 */
 	if (get_seg_entry(sbi, segno)->valid_blocks) {
 		hmfs_memcpy_atomic(sbi->gc_logs, &segno, 4);		
 		sbi->gc_logs++;
@@ -833,6 +908,9 @@ gc_more:
 		hmfs_memcpy_atomic(&hmfs_cp->nr_gc_segs, &sbi->nr_gc_segs, 4);
 	}
 
+	/*
+	 *统计当前超级块实例下每段中要进行垃圾收集的块数，并且收集它们
+	 */
 	COUNT_GC_BLOCKS(STAT_I(sbi), HMFS_PAGE_PER_SEG - 
 			get_valid_blocks(sbi, segno));
 
@@ -848,6 +926,9 @@ gc_more:
 		start_segno = segno;
 
 	/* If space is limited, we might need to scan the whole NVM */
+	/*
+	 * 如果空间有限，则重新扫描整个NVM
+	 */
 	if (need_deep_scan(sbi)) {
 		do_cp = true;
 		time_retry++;
@@ -857,10 +938,16 @@ gc_more:
 	}
 
 	/* In FG_GC, we atmost scan sbi->nr_max_fg_segs segments */
+	/*
+	 *在FG类型的垃圾收集总，最多扫描当前环境下一定数量的段
+	 */
 	if (has_not_enough_free_segs(sbi) && need_more_scan(sbi, segno, start_segno))
 		goto gc_more;
 
 out:
+    /*
+     *处理victim的段，进行检查点信息的设置
+     */
 	if (do_cp) {
 		ret= write_checkpoint(sbi, true);
 		hmfs_bug_on(sbi, ret);
