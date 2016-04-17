@@ -371,6 +371,10 @@ int hmfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 }
 
 #ifdef CONFIG_HMFS_ACL
+/*
+ * 更新@inode属性
+ * @attr指向存储要更新的属性的结构体
+ */
 static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 {
 	unsigned int ia_valid = attr->ia_valid;
@@ -398,7 +402,12 @@ static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 #else
 #define __setattr_copy setattr_copy
 #endif
-
+/*
+ * 更新文件inode属性的包装函数
+ * 先判断inode权限决定是否可更新相应属性，再调用__setattr_copy更新属性
+ * @dentry指向对应文件inode
+ * @attr指向存储要更新的属性的结构体
+ */
 int hmfs_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = dentry->d_inode;

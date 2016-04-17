@@ -833,7 +833,7 @@ int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
  * in its parent indirect node to be NULL_ADDR
  */
 /*
- * 缩短dn指向的direct node中的数据
+ * 截断dn指向的direct node中的数据
  * 检查dn->node_block中的每个地址指向的块是否为最新版本，若不是则删除无效块
  * 再将删除后的有效块数量更新到inode和超级块中，并将inode标记为脏
  */
@@ -856,7 +856,11 @@ void truncate_data_blocks(struct dnode_of_data *dn)
 		mark_inode_dirty(dn->inode);
 	}
 }
-
+/*
+ * 将文件某个偏移量from所对应块在from之后的内容清零（只清除该块内容）
+ * @inode对应文件
+ * @from对应在文件中的偏移量
+ */
 static void truncate_partial_data_page(struct inode *inode, block_t from)
 {
 	unsigned offset = from & (HMFS_PAGE_SIZE - 1);
@@ -867,7 +871,11 @@ static void truncate_partial_data_page(struct inode *inode, block_t from)
 			HMFS_PAGE_SIZE, true);
 	return;
 }
-
+/*
+ * 清除普通文件某个偏移量之后的全部内容
+ * @inode对应文件
+ * @from对应偏移量
+ */
 static int __truncate_blocks(struct inode *inode, block_t from)
 {
 	struct dnode_of_data dn;
@@ -897,12 +905,22 @@ static int __truncate_blocks(struct inode *inode, block_t from)
 	}
 
 free_next:
+/*
+ * 先调用truncate_inode_blocks删除偏移量之后的所有块内容
+ * 再调用truncate_partial_data_page删除偏移量所在的块在其之后的内容
+ */
 	err = truncate_inode_blocks(inode, free_from);
 	truncate_partial_data_page(inode, from);
 
 	return err;
 }
-
+/*
+ * 清除文件某个偏移量之后的全部内容
+ * @inode对应文件
+ * @from对应偏移量
+ * 若为内嵌型文件直接在本函数处理
+ * 否则调用__truncate_blocks处理普通文件
+ */
 static int truncate_blocks(struct inode *inode, block_t from)
 {
 	struct hmfs_inode *inode_block;
@@ -919,7 +937,10 @@ static int truncate_blocks(struct inode *inode, block_t from)
 
 	return __truncate_blocks(inode, from);
 }
-
+/*
+ * 清除@inode对应文件在i_size之后的内容
+ * 再修改i_mtime及i_ctime并将inode标记为脏
+ */
 void hmfs_truncate(struct inode *inode)
 {
 	if (!(S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode)
@@ -1325,7 +1346,12 @@ static long hmfs_fallocate(struct file *file, int mode, loff_t offset,
 
 #define HMFS_REG_FLMASK		(~(FS_DIRSYNC_FL | FS_TOPDIR_FL))
 #define HMFS_OTHER_FLMASK	(FS_NODUMP_FL | FS_NOATIME_FL)
-
+/*
+ * 对于@flags进行掩码处理
+ * @mode对应目录文件时直接返回falgs
+ * @mode对应普通文件时返回flags & HMFS_REG_FLMASK
+ * 其他情况时返回flags & HMFS_OTHER_FLMASK
+ */
 static inline __u32 hmfs_mask_flags(umode_t mode, __u32 flags)
 {
 	if (S_ISDIR(mode))
@@ -1335,7 +1361,15 @@ static inline __u32 hmfs_mask_flags(umode_t mode, __u32 flags)
 	else 
 		return flags & HMFS_OTHER_FLMASK;
 }
-
+/*
+ * 向设备发送或接收控制信息
+ * @filp指向设备文件标识符
+ * @arg指向用户空间目标地址
+ * @cmd为HMFS_IOC_GETFLAGS时，将i_flags中用户可见位发送到用户空间目标地址
+ * @cmd为HMFS_IOC_SETFLAGS时，将用户空间目标地址的值复制到flags中
+ * @cmd为HMFS_IOC_GETVERSION时，将i_generation发送到用户空间目标地址
+ * 若不符合以上任何一种情况则返回-ENOTTY
+ */
 long hmfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
@@ -1394,6 +1428,13 @@ out:
 }
 
 #ifdef CONFIG_COMPAT
+/*
+ * hmfs_ioctl函数的兼容性包装函数
+ * 向设备发送或接收控制信息
+ * @filp指向设备文件标识符
+ * @arg指向用户空间目标地址
+ * 调整@cmd的值再调用hmfs_ioctl发送或接收控制信息
+ */
 long hmfs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	switch (cmd) {
@@ -1441,7 +1482,10 @@ const struct inode_operations hmfs_file_inode_operations = {
 	.removexattr = generic_removexattr,
 #endif 
 };
-
+/*
+ * 创建slab高速缓存，使mmap_block_slab指向缓存
+ * 成功返回0，失败返回-ENOMEM
+ */
 int create_mmap_struct_cache(void)
 {
 	mmap_block_slab = hmfs_kmem_cache_create("hmfs_mmap_block",
@@ -1450,7 +1494,9 @@ int create_mmap_struct_cache(void)
 		return -ENOMEM;
 	return 0;
 }
-
+/*
+ * 销毁mmap_block_slab指向的slab高速缓存
+ */
 void destroy_mmap_struct_cache(void)
 {
 	kmem_cache_destroy(mmap_block_slab);
