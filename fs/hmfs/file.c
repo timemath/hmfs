@@ -1346,7 +1346,12 @@ static long hmfs_fallocate(struct file *file, int mode, loff_t offset,
 
 #define HMFS_REG_FLMASK		(~(FS_DIRSYNC_FL | FS_TOPDIR_FL))
 #define HMFS_OTHER_FLMASK	(FS_NODUMP_FL | FS_NOATIME_FL)
-
+/*
+ * 对于@flags进行掩码处理
+ * @mode对应目录文件时直接返回falgs
+ * @mode对应普通文件时返回flags & HMFS_REG_FLMASK
+ * 其他情况时返回flags & HMFS_OTHER_FLMASK
+ */
 static inline __u32 hmfs_mask_flags(umode_t mode, __u32 flags)
 {
 	if (S_ISDIR(mode))
@@ -1356,7 +1361,15 @@ static inline __u32 hmfs_mask_flags(umode_t mode, __u32 flags)
 	else 
 		return flags & HMFS_OTHER_FLMASK;
 }
-
+/*
+ * 向设备发送或接收控制信息
+ * @filp指向设备文件标识符
+ * @arg指向用户空间目标地址
+ * @cmd为HMFS_IOC_GETFLAGS时，将i_flags中用户可见位发送到用户空间目标地址
+ * @cmd为HMFS_IOC_SETFLAGS时，将用户空间目标地址的值复制到flags中
+ * @cmd为HMFS_IOC_GETVERSION时，将i_generation发送到用户空间目标地址
+ * 若不符合以上任何一种情况则返回-ENOTTY
+ */
 long hmfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
@@ -1415,6 +1428,13 @@ out:
 }
 
 #ifdef CONFIG_COMPAT
+/*
+ * hmfs_ioctl函数的兼容性包装函数
+ * 向设备发送或接收控制信息
+ * @filp指向设备文件标识符
+ * @arg指向用户空间目标地址
+ * 调整@cmd的值再调用hmfs_ioctl发送或接收控制信息
+ */
 long hmfs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	switch (cmd) {
@@ -1462,7 +1482,10 @@ const struct inode_operations hmfs_file_inode_operations = {
 	.removexattr = generic_removexattr,
 #endif 
 };
-
+/*
+ * 创建slab高速缓存，使mmap_block_slab指向缓存
+ * 成功返回0，失败返回-ENOMEM
+ */
 int create_mmap_struct_cache(void)
 {
 	mmap_block_slab = hmfs_kmem_cache_create("hmfs_mmap_block",
@@ -1471,7 +1494,9 @@ int create_mmap_struct_cache(void)
 		return -ENOMEM;
 	return 0;
 }
-
+/*
+ * 销毁mmap_block_slab指向的slab高速缓存
+ */
 void destroy_mmap_struct_cache(void)
 {
 	kmem_cache_destroy(mmap_block_slab);
