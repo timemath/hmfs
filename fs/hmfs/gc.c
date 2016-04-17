@@ -12,21 +12,44 @@
 /*
  * Setup arguments for GC and GC recovery
  */
+/*
+ *cc1 prepare_move_argument：为垃圾收集及垃圾收集的恢复设置并初始化参数
+ *@arg：初始化参数实例
+ *@sbi:指向超级块信息的指针实例
+ *@mv_segno:段号
+ *@mv_offset：偏移量
+ *@sum：summary的地址参数
+ *@type:段的数据类型
+ */
 void prepare_move_argument(struct gc_move_arg *arg,
 				struct hmfs_sb_info *sbi, seg_t mv_segno, unsigned mv_offset,
 				struct hmfs_summary *sum, int type)
 {
+	/*
+	 * 根据summary获取起始版本号，初始化参数的开始版本，nodeid,起始偏移量
+	 */
 	arg->start_version = get_summary_start_version(sum);
 	arg->nid = get_summary_nid(sum);
 	arg->ofs_in_node = get_summary_offset(sum);
+	/*
+	 * 根据超级块的段的偏移量计算当前偏移地址，初始化参数中的指针所指向的地址
+	 */
 	arg->src_addr = __cal_page_addr(sbi, mv_segno, mv_offset);
 	arg->src = ADDR(sbi, arg->src_addr);
-
+    /*
+     * 根据起始版本信息，获取检查点信息
+     */
 	arg->cp_i = get_checkpoint_info(sbi, arg->start_version, true);
 
+	/*
+	 * 判断是否需要进行修复
+	 */
 	if (sbi->recovery_doing)
 		return;
 
+	/*
+	 * 目标指针指向分配的新的数据块和节点的空间
+	 */
 	if (type == TYPE_DATA) {
 		arg->dest = alloc_new_data_block(sbi, NULL, 0);
 	} else {
@@ -35,25 +58,43 @@ void prepare_move_argument(struct gc_move_arg *arg,
 	
 	hmfs_bug_on(sbi, IS_ERR(arg->dest));
 
+	/*
+	 *地址转换后返回目的地址，根据地址返回目的summary表
+	 */
 	arg->dest_addr = L_ADDR(sbi, arg->dest);
 	arg->dest_sum = get_summary_by_addr(sbi, arg->dest_addr);
 	
+	/*
+	 * 将数据从源地址复制到目的地址
+	 */
 	hmfs_memcpy(arg->dest, arg->src, HMFS_PAGE_SIZE);
 }
 
+/*
+ *2cc get_cb_cost：返回得到回收当前SIT中段的时间开销
+ *@sbi:指向超级块信息的指针实例
+ *@segno:段号
+ */
 static unsigned int get_cb_cost(struct hmfs_sb_info *sbi, unsigned int segno)
 {
+
 	struct sit_info *sit_i = SIT_I(sbi);
 	unsigned long long mtime = 0;
 	unsigned int vblocks;
 	unsigned char age = 0;
 	unsigned char u;
 
+	/*
+	 * 初始化段entry的修改时间和有效块的个数
+	 */
 	mtime = get_seg_entry(sbi, segno)->mtime;
 	vblocks = get_seg_entry(sbi, segno)->valid_blocks;
 
 	u = (vblocks * 100) >> HMFS_PAGE_PER_SEG_BITS;
 
+	/*
+	 * 更新SIT表的最小和最大修改时间为最新，如果最小时间大于最大时间，则更新SIT表的age
+	 */
 	if (mtime < sit_i->min_mtime)
 		sit_i->min_mtime = mtime;
 	if (mtime > sit_i->max_mtime)
@@ -64,10 +105,18 @@ static unsigned int get_cb_cost(struct hmfs_sb_info *sbi, unsigned int segno)
 
 	return UINT_MAX - ((100 * (100 - u) * age) / (100 + u));
 }
-
+/*
+ * cc3 get_max_cost:返回要遍历的段的大小
+ * @sbi:指向超级块信息的指针实例
+ * @p:记录块回收的实例
+ * @return:返回要遍历的段的大小
+ */
 static unsigned int get_max_cost(struct hmfs_sb_info *sbi,
 				 struct victim_sel_policy *p)
 {
+	/*
+	 *如果垃圾回收的类型是贪婪类型，则从头遍历段的大小，即2M的段大小
+	 */
 	if (p->gc_mode == GC_GREEDY)
 		return HMFS_PAGE_PER_SEG;
 	else if (p->gc_mode == GC_CB)
@@ -75,6 +124,11 @@ static unsigned int get_max_cost(struct hmfs_sb_info *sbi,
 	else
 		return 0;
 }
+/*
+ *cc4 get_gc_cost:通过该段的入口地址返回有效的块的个数
+ *@sbi:指向超级块信息的指针实例
+ *@p:记录块回收的实例
+ */
 
 static unsigned int get_gc_cost(struct hmfs_sb_info *sbi, unsigned int segno,
 				struct victim_sel_policy *p)
@@ -92,8 +146,16 @@ static unsigned int get_gc_cost(struct hmfs_sb_info *sbi, unsigned int segno,
  * we take down the first victim segment as start_segno
  */
 //TODO: We might need to collect many segments in one victim searching
+/*
+ *cc5 get_victim：
+ *@sbi:指向超级块信息的指针实例
+ *@gc_type:垃圾回收的类型
+ */
 static int get_victim(struct hmfs_sb_info *sbi, seg_t *result, int gc_type)
 {
+	/*
+	 *定义脏的段的实例，检查点的实例
+	 */
 	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
 	struct hmfs_checkpoint *hmfs_cp = CM_I(sbi)->last_cp_i->cp;
 	struct victim_sel_policy p;
@@ -102,18 +164,30 @@ static int get_victim(struct hmfs_sb_info *sbi, seg_t *result, int gc_type)
 	seg_t segno;
 	int nsearched = 0;
 	int total_segs = TOTAL_SEGS(sbi);
+	/*
+	 * 定义当前记录的日志信息中段的情况
+	 */
 	struct curseg_info *seg_i0 = &(CURSEG_I(sbi)[0]);
 	struct curseg_info *seg_i1 = &(CURSEG_I(sbi)[1]);
 
+	/*
+	 *判断得到当前垃圾回收的类型，根据上一次垃圾回收时victim类型返回当前偏移量，以及返回当前便利的段的开销
+	 */
 	p.gc_mode = gc_type == BG_GC ? GC_CB : GC_GREEDY;
 	p.offset = sbi->last_victim[p.gc_mode];
 	p.min_segno = NULL_SEGNO;
 	p.min_cost = max_cost = get_max_cost(sbi, &p);
 
 	while (1) {
+		/*
+		 *根据脏段的为题情况，偏移量等找到下一个脏的段
+		 */
 		segno = find_next_bit(dirty_i->dirty_segmap, total_segs, p.offset);
 
 		if (segno >= total_segs) {
+			/*
+			 *如果垃圾回收的类型是贪婪的，就更新偏移量和类型，否则遍历下一个段
+			 */
 			if (sbi->last_victim[p.gc_mode]) {
 				sbi->last_victim[p.gc_mode] = 0;
 				p.offset = 0;
@@ -133,11 +207,17 @@ static int get_victim(struct hmfs_sb_info *sbi, seg_t *result, int gc_type)
 		 * It's not allowed to move node segment where last checkpoint
 		 * locate. Because we need to log GC segments in it.
 		 */
+		/*
+		 *不移动node段的信息，根据上一次检查点的位置
+		 */
 		if (segno == le32_to_cpu(hmfs_cp->cur_node_segno)) {
 			continue;
 		}
 
 		/* Stop if we find a segment whose cost is small enough */
+		/*
+		 * 如果某段有效块的个数少于100，即开销很小，则对回收类型进行定义
+		 */
 		if (get_seg_entry(sbi, segno)->valid_blocks < NR_GC_MIN_BLOCK) {
 			p.min_segno = segno;
 			hmfs_dbg("Get victim:%lu vblocks:%d gc_type:%s\n", (unsigned long)segno, get_seg_entry(sbi, segno)->valid_blocks,
@@ -147,6 +227,9 @@ static int get_victim(struct hmfs_sb_info *sbi, seg_t *result, int gc_type)
 
 		cost = get_gc_cost(sbi, segno, &p);
 	//	hmfs_dbg("%lu %lu %s\n", (unsigned long)segno, cost, gc_type == BG_GC ? "BG" : "FG");
+		/*
+		 *如果当前开销低于记录的最低开销，则更新，并且寻找下一块
+		 */
 		if (p.min_cost > cost) {
 			p.min_segno = segno;
 			p.min_cost = cost;
@@ -165,10 +248,17 @@ static int get_victim(struct hmfs_sb_info *sbi, seg_t *result, int gc_type)
 	if (p.min_segno != NULL_SEGNO) {
 		*result = p.min_segno;
 	}
-	
+	/*
+	 * 判断是否是空段。
+	 */
 	hmfs_dbg("Select %d\n", p.min_segno == NULL_SEGNO ? -1 : p.min_segno);
 	return (p.min_segno == NULL_SEGNO) ? 0 : 1;
 }
+/*
+ *cc6 update_dest_summary:复制块
+ *@src_sum:段中大小是4KB的块summary entry实例，作为源块
+ *@dest_sum:段中大小是4KB的块summary entry实例，作为目的块
+ */
 
 static void update_dest_summary(struct hmfs_summary *src_sum,
 				struct hmfs_summary *dest_sum)
@@ -176,9 +266,19 @@ static void update_dest_summary(struct hmfs_summary *src_sum,
 	hmfs_memcpy(dest_sum, src_sum, sizeof(struct hmfs_summary));
 }
 
+/*
+ *cc7 move_data_block:
+ *@sbi:指向超级块信息的指针实例
+ *@src_segno:源段号类型
+ *@src_off：
+ *@src_sum:summary entry的实例
+ */
 static void move_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 			    int src_off, struct hmfs_summary *src_sum)
 {
+	/*
+	 * 检查点管理器的实例
+	 */
 	struct gc_move_arg args;
 	struct hmfs_node *last = NULL, *this = NULL;
 	struct hmfs_summary *par_sum = NULL;
@@ -187,23 +287,36 @@ static void move_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 	block_t addr_in_par;
 	int par_type;
 
+	/*
+	 *根据summary入口信息获取版本信息，并且判断是否等于检查点管理器记录的最新版本
+	 */
 	is_current = get_summary_start_version(src_sum) == cm_i->new_version;
 
 	/* 1. read summary of source blocks */
 	/* 2. move blocks */
+	/*
+	 *为垃圾回收准备参数
+	 */
 	prepare_move_argument(&args, sbi, src_segno, src_off, src_sum,
 			TYPE_DATA);
 
 	while (1) {
 		/* 3. get the parent node which hold the pointer point to source node */
+		/*
+		 *得到指向段节点的node的父节点
+		 */
 		this = __get_node(sbi, args.cp_i, args.nid);
 
 		par_sum = get_summary_by_addr(sbi, L_ADDR(sbi, this));
 
+		/*
+		 * 判断该节点是否已经被删除
+		 */
 		if (IS_ERR(this)) {
 			/* the node(args.nid) has been deleted */
 			break;
 		}
+
 
 		hmfs_dbg_on(get_summary_type(par_sum) != SUM_TYPE_INODE &&
 				get_summary_type(par_sum) != SUM_TYPE_DN, "Invalid summary type:"
@@ -215,12 +328,18 @@ static void move_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 				get_summary_type(par_sum) != SUM_TYPE_DN);
 
 		/* Now the pointer contains in direct node have been changed last time */
+		/*
+		 *判断直接节点里的指针是否已经被修改了
+		 */
 		if (this == last)
 			goto next;
 
 		par_type = get_summary_type(par_sum);
 
 		/* Now src data block has been COW or parent node has been removed */
+		/*
+		 *判断父节点的类型是否是inode的块
+		 */
 		if (par_type == SUM_TYPE_INODE) {
 			addr_in_par = le64_to_cpu(this->i.i_addr[args.ofs_in_node]);
 		} else {
@@ -232,6 +351,9 @@ static void move_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 		 * now direct node or inode in laster checkpoint would never
 		 * refer to this data block
 		 */
+		/*
+		 *在正常的垃圾回收的过程中，如果父节点的块类型等于了源类型，就停止。因为后来的检查点中的直接节点和inode一定不会指向这个数据块
+		 */
 		if (addr_in_par != args.src_addr) 
 			break;
 
@@ -240,6 +362,9 @@ static void move_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 		 * during wrting address, i.i_addr and dn.addr would be invalid,
 		 * whose value is neither args.dest_addr nor args.src_addr. Therefore,
 		 * if recovery process, it would terminate in this checkpoint
+		 */
+		/*
+		 *如果系统崩溃了，在写地址的时候，i.i_addr和dn.addr都会是无效的，所以应该用原子写，因此，如果是恢复过程，在检查点钟将会终止
 		 */
 		if (par_type == SUM_TYPE_INODE) {
 			hmfs_memcpy_atomic(&this->i.i_addr[args.ofs_in_node], 
@@ -253,6 +378,9 @@ static void move_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 
 next:
 		/* cp_i is the lastest checkpoint, stop */
+       /*
+        * 判断当前检查点是否是最新的检查点，如果是，则停止
+        */
 		if (args.cp_i == cm_i->last_cp_i || is_current) {
 			break;
 		}
@@ -260,9 +388,18 @@ next:
 	}
 
 	/* 5. Update summary infomation of dest block */
+	/*
+	 * 更新目标块的summary信息
+	 */
 	update_dest_summary(src_sum, args.dest_sum);
 }
 
+/*
+ * cc8 recycle_segment:回收无效的段
+ * @sbi:指向超级块信息的指针实例
+ * @segno:段号类型
+ * @none_valid:判断块是否无效
+ */
 static void recycle_segment(struct hmfs_sb_info *sbi, seg_t segno, bool none_valid)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
@@ -271,9 +408,15 @@ static void recycle_segment(struct hmfs_sb_info *sbi, seg_t segno, bool none_val
 	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
 	struct seg_entry *seg_entry;
 
+	/*
+	 *根据SIT表信息先锁定入口
+	 */
 	lock_sentry(sit_i);
 
 	/* clean dirty bit */
+	/*
+	 *根据SIT表中脏段的位图信息，清理脏的sentries,同时初始化有效的块数和时间
+	 */
 	if (!test_and_set_bit(segno, sit_i->dirty_sentries_bitmap)) {
 		sit_i->dirty_sentries++;
 	}
@@ -284,9 +427,15 @@ static void recycle_segment(struct hmfs_sb_info *sbi, seg_t segno, bool none_val
 	unlock_sentry(sit_i);
 
 	/* clear dirty bit */
+	/*
+	 * 清理脏的比特
+	 */
 	if (!test_and_clear_bit(segno, dirty_i->dirty_segmap))
 		hmfs_bug_on(sbi, 1);
 
+	/*
+	 * 如果是无效的块，锁定写的段位图，，遍历并清理所有空闲段的信息
+	 */
 	if (none_valid) {
 		lock_write_segmap(free_i);
 		if (test_and_clear_bit(segno, free_i->free_segmap)) {
@@ -295,16 +444,28 @@ static void recycle_segment(struct hmfs_sb_info *sbi, seg_t segno, bool none_val
 		unlock_write_segmap(free_i);
 	} else {
 		/* set prefree bit */
+		/*
+		 *测试所有无效块的空闲段信息
+		 */
 		if (test_and_set_bit(segno, free_i->prefree_segmap))
 			hmfs_bug_on(sbi, 1);
 	}
 
 	/* Now we have recycle HMFS_PAGE_PER_SEG blocks and update cm_i */
+	/*
+	 *现在根据检查点管理器清理每个段的中无效的段，同时更新检查点管理器
+	 */
 	lock_cm(cm_i);
 	cm_i->alloc_block_count -= HMFS_PAGE_PER_SEG;
 	unlock_cm(cm_i);
 }
 
+/*
+ *cc 9 move_xdata_block:移动并更新数据块信息
+ *@sbi:指向超级块信息的指针实例
+ *@src_segno：源段号类型
+ *@src_sum：源summary信息
+ */
 static void move_xdata_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 				int src_off, struct hmfs_summary *src_sum)
 {
@@ -321,6 +482,9 @@ static void move_xdata_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 			TYPE_DATA);
 
 	while(1) {
+		/*
+		 * 根据检查点和node id获取这个阶段，判断这个节点是否被删除了
+		 */
 		this = __get_node(sbi, arg.cp_i, arg.nid);
 
 		if (IS_ERR(this))
@@ -335,10 +499,15 @@ static void move_xdata_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 		x_tag = le64_to_cpu(XATTR_HDR(arg.src)->h_magic);
 		addr_in_par = XBLOCK_ADDR(this, x_tag);
 		
+		/*
+		 *判断当前地址是否等于源地址
+		 */
 		if (addr_in_par != arg.src_addr) {
 			break;
 		}
-		
+		/*
+		 *copy调至源类型
+		 */
 		hmfs_memcpy_atomic(JUMP(this, x_tag), &arg.dest_addr, 8);
 
 		last = this;
@@ -346,12 +515,21 @@ static void move_xdata_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 next:
 		if (arg.cp_i == cm_i->last_cp_i || is_current)
 			break;
+		/*
+		 * 判断当前检查点是否等于下一个检查点
+		 */
 		arg.cp_i = get_next_checkpoint_info(sbi, arg.cp_i);
 	}
-
+    /*
+     *用目的summary信息更新源summary信息
+     */
 	update_dest_summary(src_sum, arg.dest_sum);
 }
-
+/*
+ *cc10 move_node_block:移动node块信息
+ *@src_segno：源段号类型
+ *@src_sum：源summary信息
+ */
 static void move_node_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 			    unsigned int src_off, struct hmfs_summary *src_sum)
 {
@@ -367,11 +545,17 @@ static void move_node_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 
 	if (is_current) {
 		//update NAT cache
+		/*
+		 * 更新NAT缓存信息
+		 */
 		gc_update_nat_entry(NM_I(sbi), args.nid, args.dest_addr);
 		return;
 	}
 
 	while (1) {
+		/*
+		 *根据检查点的版本和node id获取NAT表的入口块信息
+		 */
 		this = get_nat_entry_block(sbi, args.cp_i->version, args.nid);
 		if (IS_ERR(this))
 			break;
@@ -381,6 +565,9 @@ static void move_node_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 
 		addr_in_par = le64_to_cpu(this->entries[args.ofs_in_node].block_addr);
 		/* Src node has been COW or removed */
+		/*
+		 *判断源节点是否已经删除
+		 */
 		if (addr_in_par != args.src_addr) {
 			break;
 		}
@@ -390,6 +577,9 @@ static void move_node_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 		last = this;
 
 next:
+       /*
+        *判断当前检查点是否和上一次的检查点相同
+        */
 		if (args.cp_i == CM_I(sbi)->last_cp_i)
 			break;
 		args.cp_i = get_next_checkpoint_info(sbi, args.cp_i);
@@ -397,7 +587,11 @@ next:
 
 	update_dest_summary(src_sum, args.dest_sum);
 }
-
+/*
+ *cc11 move_nat_block:移动NAT块
+ *@src_segno：源段号类型
+ *@src_sum：源summary信息
+ */
 static void move_nat_block(struct hmfs_sb_info *sbi, seg_t src_segno, int src_off,
 			   struct hmfs_summary *src_sum)
 {
@@ -411,6 +605,9 @@ static void move_nat_block(struct hmfs_sb_info *sbi, seg_t src_segno, int src_of
 	prepare_move_argument(&args, sbi, src_segno, src_off, src_sum, TYPE_NODE);
 
 	while (1) {
+		/*
+		 *根据节点ID判断是否为NAT表的根节点，如果是，更新检查点信息，如果不是，更新父节点信息，同时获取指向NAT表节点的实例
+		 */
 		if (IS_NAT_ROOT(args.nid))
 			this = args.cp_i->cp;
 		else {
@@ -423,6 +620,9 @@ static void move_nat_block(struct hmfs_sb_info *sbi, seg_t src_segno, int src_of
 		if (this == last)
 			goto next;
 
+		/*
+		 *判断是否是NAT表的根节点。判断是否是NAT表的根节点，同时更新检查点和父节点地址信息
+		 */
 		if (IS_NAT_ROOT(args.nid)) {
 			hmfs_cp = HMFS_CHECKPOINT(this);
 			addr_in_par = le64_to_cpu(hmfs_cp->nat_addr);
@@ -434,6 +634,9 @@ static void move_nat_block(struct hmfs_sb_info *sbi, seg_t src_segno, int src_of
 		if (addr_in_par != args.src_addr) {
 			break;
 		}
+		/*
+		 *写入地址信息到NAT节点表中
+		 */
 
 		if (IS_NAT_ROOT(args.nid)) {
 			hmfs_memcpy_atomic(&hmfs_cp->nat_addr, &args.dest_addr, 8);
@@ -454,6 +657,11 @@ next:
 }
 
 /* Orphan blocks is not shared */
+/*
+ *cc12 move_orphan_block:移动孤立的块
+ *@src_segno：源段号类型
+ *@src_sum：源summary信息
+ */
 static void move_orphan_block(struct hmfs_sb_info *sbi, seg_t src_segno, 
 				int src_off, struct hmfs_summary *src_sum)
 {
@@ -463,6 +671,9 @@ static void move_orphan_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 	prepare_move_argument(&args, sbi, src_segno, src_off, src_sum,
 			TYPE_NODE);
 	cp_addr = le64_to_cpu(*((__le64 *)args.src));
+	/*
+	 *初始化检查点的地址信息，以及孤立点的信息
+	 */
 	hmfs_cp = ADDR(sbi, cp_addr);
 	hmfs_cp->orphan_addrs[get_summary_offset(src_sum)] = 
 			cpu_to_le64(args.dest_addr);
