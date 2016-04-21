@@ -5,6 +5,11 @@
 /*
  * return the last block index in current node/inode
  */
+ /**
+ * 当前目录层次最后一个块块号
+ * @block  当前目录所有的一个块块号
+ * @level  当前层次
+ */ 
 static int get_end_blk_index(int block, int level)
 {
 	int start_blk;
@@ -16,7 +21,10 @@ static int get_end_blk_index(int block, int level)
 	}
 	return NORMAL_ADDRS_PER_INODE - 1;
 }
-
+/**
+ * 改变系统和inode的有效块数量
+ * @count  改变的数量
+ */ 
 static bool inc_valid_block_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count)
 {
@@ -52,6 +60,12 @@ static bool inc_valid_block_count(struct hmfs_sb_info *sbi,
  *			-ALLOC_NODE: If node in the path is not exist, create it
  *			-LOOKUP_NODE: If not exist, stop.
  */
+ /**
+ * 获取数据块的dnode_of_data结构
+ * @dn 所填充结构指针
+ * @index 第index数据块
+ * @mode ALLOC_NODE创建块  LOOK_UP只查询不创建
+ */ 
 int get_dnode_of_data(struct dnode_of_data *dn, int index, int mode)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(dn->inode);
@@ -143,6 +157,12 @@ out:
  * @blocks:		pointer buffer, data blocks address
  * @mode:		read ahead mode
  */
+ /**
+ * 获取inode的start到end的数据块地址
+ * @blocks  数据块地址返回
+ * @size  成功返回数据块个数
+ 
+ */ 
 int get_data_blocks(struct inode *inode, int start, int end, void **blocks,
 				int *size, int mode)
 {
@@ -193,7 +213,9 @@ fill_null:
 	}
 	return err;
 }
-
+/**
+ * 为数据块设置hmfs_summary
+ */ 
 static void setup_summary_of_new_data_block(struct hmfs_sb_info *sbi,
 				block_t new_addr, unsigned int ino, unsigned int ofs_in_node)
 {
@@ -210,6 +232,11 @@ static void setup_summary_of_new_data_block(struct hmfs_sb_info *sbi,
  * copy its data with range [start,start+size) to newly allocated 
  * block
  */
+ /**
+ * 申请一个数据块并拷贝[0,left],[right,pagesize]数据
+ * @block 申请的数据块偏移
+ * @fill_zero  true 申请数据块清零 false 拷贝
+ */ 
 void *alloc_new_data_partial_block(struct inode *inode, int block, int left,
 				int right, bool fill_zero)
 {
@@ -285,7 +312,10 @@ void *alloc_new_data_partial_block(struct inode *inode, int block, int left,
 			dn.ofs_in_node);
 	return dest;
 }
-
+/**
+ * 为inode分配一个数据块
+ * @block 数据块在总数据块中的偏移
+ */ 
 static void *__alloc_new_data_block(struct inode *inode, int block)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
@@ -351,7 +381,10 @@ static void *__alloc_new_data_block(struct inode *inode, int block)
 			dn.ofs_in_node);
 	return dest;
 }
-
+/**
+ * 分配一个数据块
+ * @inode  可为NULL
+ */ 
 void *alloc_new_data_block(struct hmfs_sb_info *sbi, struct inode *inode, 
 				int block)
 {
@@ -371,6 +404,10 @@ void *alloc_new_data_block(struct hmfs_sb_info *sbi, struct inode *inode,
  * Return the extended block of inode
  * @x_tag: is the member offset base on start address of inode block
  */
+ /**
+ * 分配一个数据块 拷贝inode偏移x_tag字节的块数据
+ * @need_copy true 拷贝 false 清零
+ */ 
 void *alloc_new_x_block(struct inode *inode, int x_tag, bool need_copy)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
