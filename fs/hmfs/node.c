@@ -1077,7 +1077,11 @@ struct hmfs_nat_entry *get_nat_entry(struct hmfs_sb_info *sbi,
 		return NULL;
 	return &nat_block->entries[rem];
 }
-
+/**
+ * 获取NAT树中第index个节点
+ * @version  NAT树的CP版本
+ * @index   节点编号
+ */
 struct hmfs_nat_node *get_nat_node(struct hmfs_sb_info *sbi,
 				ver_t version, unsigned int index)
 {
@@ -1091,7 +1095,15 @@ struct hmfs_nat_node *get_nat_node(struct hmfs_sb_info *sbi,
 
 	return __get_nat_page(sbi, L_ADDR(sbi, nat_root), block_id, height);
 }
-
+/**
+ * 更新NAT树
+ * @old_nat_node  老的NAT节点
+ * @cur_nat_node  更新后的NAT节点
+ * @blk_order   需更新的NAT叶子节点相对于当前树的偏移
+ * @height  当前树高
+ * @nat_entry_page  需更新的叶子节点内容
+ * @ofs_in_pair  下一级孩子节点对父节点的偏移
+ */
 static block_t __flush_nat_entries(struct hmfs_sb_info *sbi,
 				struct hmfs_nat_node *old_nat_node, 
 				struct hmfs_nat_node *cur_nat_node,	unsigned int blk_order,
@@ -1186,7 +1198,9 @@ static block_t __flush_nat_entries(struct hmfs_sb_info *sbi,
 	}
 	return cur_stored_addr;
 }
-
+/**
+ * 将free_nids链表中的nid置为可用
+ */
 static void clean_free_nid(struct hmfs_sb_info *sbi, nid_t nid)
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -1201,7 +1215,9 @@ static void clean_free_nid(struct hmfs_sb_info *sbi, nid_t nid)
 	}
 	hmfs_bug_on(sbi, 1);
 }
-
+/**
+ * 处理node_manage——info的两个nat-entry链表
+ */
 static inline void clean_dirty_nat_entries(struct hmfs_sb_info *sbi) 
 {
 	struct hmfs_nm_info *nm_i = NM_I(sbi);
@@ -1238,7 +1254,9 @@ static inline void clean_dirty_nat_entries(struct hmfs_sb_info *sbi)
 		}
 	}
 }
-
+/**
+ * 读取当前CP的journal中的使用的nat_entry
+ */ 
 static void cache_nat_journals_entries(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_checkpoint *hmfs_cp = CM_I(sbi)->last_cp_i->cp;
@@ -1258,7 +1276,9 @@ static void cache_nat_journals_entries(struct hmfs_sb_info *sbi)
 			update_nat_entry(nm_i, nid, ino, blk_addr, true);
 	}
 }
-
+/**
+ * 构造node_manager
+ */ 
 int build_node_manager(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_nm_info *info;
@@ -1282,7 +1302,12 @@ free_nm:
 	kfree(info);
 	return err;
 }
-
+/**
+ * 将nat_entry写入journal
+ * @entry 写入的nat_entry地址
+ * @nr_dirty_nat 写入的个数
+ * @journal_pos journal写入位置
+ */ 
 static int __flush_nat_journals(struct hmfs_checkpoint *hmfs_cp, 
 				struct nat_entry *entry, int nr_dirty_nat, int* journal_pos)
 {
@@ -1313,6 +1338,10 @@ static int __flush_nat_journals(struct hmfs_checkpoint *hmfs_cp,
  * list in runtime of fs. When flushing nat journals, we just move some
  * of them to nat_entries temporary
  */
+ /**
+ * 清除dirty_nat_entry链表中flag为NAT_FLAG_FREE_NID的entry其余移入nat_entry链表
+ */ 
+
 static void flush_nat_journals(struct hmfs_sb_info *sbi, 
 				struct hmfs_checkpoint *hmfs_cp)
 {
@@ -1398,7 +1427,10 @@ del_journal:
 		}
 	}
 }
-
+/**
+ *将cp的NAT树写入NVM
+ * @hmfs_cp NAT树所属cp
+ */ 
 struct hmfs_nat_node *flush_nat_entries(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *hmfs_cp)
 {
@@ -1511,7 +1543,10 @@ out:
 	__free_page(empty_page);
 	return new_root_node;
 }
-
+/**
+ * 将块的hmfs_summary置为有效
+ * @addr 块地址
+ */ 
 void mark_block_valid_type(struct hmfs_sb_info *sbi, block_t addr)
 {
 	struct hmfs_summary *summary;
@@ -1549,7 +1584,11 @@ void mark_block_valid_type(struct hmfs_sb_info *sbi, block_t addr)
 		}
 	}
 }
-
+/**
+ * 递归将NAT中所有节点的hmfs_summary设置为有效
+ * @cur_nat_node 当前设置节点
+ * @height 当前树高
+ */ 
 static void __mark_block_valid(struct hmfs_sb_info *sbi,	 
 				struct hmfs_nat_node *cur_nat_node, unsigned int blk_order,
 				unsigned int version, u8 height)
@@ -1600,7 +1639,11 @@ static void __mark_block_valid(struct hmfs_sb_info *sbi,
 		}
 	}
 }
-
+/**
+ * 将NAT树的summary置为有效
+ * @nat_root  NAT树根节点
+ * @hmfs_cp NAT树所属cp
+ */ 
 void mark_block_valid(struct hmfs_sb_info *sbi, struct hmfs_nat_node *nat_root,
 				struct hmfs_checkpoint *hmfs_cp)
 {
