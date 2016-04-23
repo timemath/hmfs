@@ -3,6 +3,7 @@
 #include <linux/seq_file.h>
 #include <linux/pagemap.h>
 #include <linux/string.h>
+#include <linux/rtc.h>
 #include "hmfs_fs.h"
 #include "segment.h"
 
@@ -22,7 +23,7 @@
 			"    help  --   show this usage.\n" \
 			"=========================================\n"
 
-#define USAGE_CP	"cp"
+#define USAGE_CP	"cp\n"
 
 #define USAGE_SSA	"=============== SSA USAGE ==============\n"\
       			" `ssa <idx1> <idx2>`\n"\
@@ -367,6 +368,8 @@ static int print_cp_one(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *cp,
 	size_t len = 0;
 	int i;
 	struct hmfs_stat_info *si = STAT_I(sbi);
+	struct rtc_time tm;
+	unsigned long rtime;
 
 	if (!cp)
 		return 0;
@@ -412,7 +415,10 @@ static int print_cp_one(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *cp,
 					le32_to_cpu(cp->next_scan_nid));
 		len += hmfs_print(si, 1, "elapsed_time: %u\n",
 					le32_to_cpu(cp->elapsed_time));
-		len += hmfs_print(si, 1, "\n\n");
+		rtime = (unsigned long)(le32_to_cpu(cp->wall_time) - sys_tz.tz_minuteswest*60);
+		rtc_time_to_tm(rtime, &tm);
+		len += hmfs_print(si, 1, "wall_time: %04d-%02d-%02d %02d:%02d:%02d \n",tm.tm_year+1900,tm.tm_mon+1, tm.tm_mday,tm.tm_hour,tm.tm_min,tm.tm_sec);
+		len += hmfs_print(si, 1, "\n");
 	}
 	return len;
 }

@@ -439,6 +439,7 @@ static int hmfs_format(struct super_block *sb)
 	set_struct(cp, valid_node_count, node_blkoff);
 	set_struct(cp, next_scan_nid, 4);
 	set_struct(cp, elapsed_time, 0);
+	set_struct(cp, wall_time, current_kernel_time().tv_sec);
 
 	/* setup super block */
 	set_struct(super, magic, HMFS_SUPER_MAGIC);

@@ -756,6 +756,7 @@ static int do_checkpoint(struct hmfs_sb_info *sbi)
 			curseg_i[CURSEG_DATA].next_blkoff);
 	set_struct(store_checkpoint, next_scan_nid, nm_i->next_scan_nid);
 	set_struct(store_checkpoint, elapsed_time, get_mtime(sbi));
+	set_struct(store_checkpoint, wall_time, current_kernel_time().tv_sec);
 
 	/* 2. flush SIT to cp */
 	flush_sit_entries(sbi, store_checkpoint_addr, nat_root);
