@@ -844,7 +844,7 @@ recycle:
 	recycle_segment(sbi, segno, none_valid);
 }
 /*
- *hmfs_gc:
+ *cc15 hmfs_gc:
  *@sbi:指向超级块信息的指针实例
  *@gc_type:垃圾回收的类型
  */
@@ -960,6 +960,11 @@ out:
 			(unsigned long)CM_I(sbi)->valid_block_count);
 	return ret;
 }
+/**
+ * cc16 gc_thread_func:实时更新在超级块信息中垃圾回收进程的等待时间
+ *@data：初始化当前超级块的信息
+ *@return:成功，返回0
+ */
 
 static int gc_thread_func(void *data)
 {
@@ -973,12 +978,18 @@ static int gc_thread_func(void *data)
 		if (try_to_freeze())
 			continue;
 		else
+			/**
+			 *如果超时或者条件满足时，就启动垃圾回收的进程
+			 */
 			wait_event_interruptible_timeout(*wq, kthread_should_stop(),
 					msecs_to_jiffies(wait_ms));
 
 		if (kthread_should_stop())
 			break;
 
+		/**
+		 * 如果当前超级块记录中空闲写的时间与记录不符合，则更新相应的垃圾回收最大睡眠时间
+		 */
 		if (sbi->sb->s_writers.frozen >= SB_FREEZE_WRITE) {
 			wait_ms = sbi->gc_thread_max_sleep_time;
 			continue;
@@ -986,7 +997,9 @@ static int gc_thread_func(void *data)
 
 		if (!trylock_gc(sbi))
 			continue;
-
+		/**
+		 * 如果当前超级块记录中已经有了足够多无效的块，就可以释放等待时间，准备进行垃圾回收了
+		 */
 		if (has_enough_invalid_blocks(sbi))
 			wait_ms = decrease_sleep_time(sbi, wait_ms);
 		else
@@ -999,7 +1012,11 @@ static int gc_thread_func(void *data)
 	} while (!kthread_should_stop());
 	return 0;
 }
-
+/**
+ * cc17 start_gc_thread: 开始处理垃圾回收进程时，先判断当前进程是否出错
+ * @sbi:指向超级块信息的指针实例
+ * @return:如果出错，返回错误标识
+ */
 int start_gc_thread(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_gc_kthread *gc_thread = NULL;
@@ -1017,11 +1034,17 @@ int start_gc_thread(struct hmfs_sb_info *sbi)
 		goto out;
 	}
 
+	/**
+	 * 初始化垃圾回收进程的等待队列队头，同时初始化垃圾回收进程的回收任务
+	 */
 	sbi->gc_thread = gc_thread;
 	init_waitqueue_head(&(sbi->gc_thread->gc_wait_queue_head));
 	sbi->gc_thread->hmfs_gc_task = kthread_run(gc_thread_func, sbi,
 										"hmfs_gc-%lu:->%lu",
 										start_addr, end_addr);
+	/**
+	 *如果出错，释放当前进程
+	 */
 	if (IS_ERR(gc_thread->hmfs_gc_task)) {
 		err = PTR_ERR(gc_thread->hmfs_gc_task);
 		kfree(gc_thread);
@@ -1030,6 +1053,10 @@ int start_gc_thread(struct hmfs_sb_info *sbi)
 out:
 	return err;
 }
+/**
+ * cc18 stop_gc_thread: 根据垃圾回收进程的任务信息，停止当前进程
+ * @sbi:指向超级块信息的指针实例
+ */
 
 void stop_gc_thread(struct hmfs_sb_info *sbi)
 {
@@ -1041,13 +1068,21 @@ void stop_gc_thread(struct hmfs_sb_info *sbi)
 	sbi->gc_thread = NULL;
 }
 
+/**
+ *cc19 init_gc_logs:初始化垃圾回收的日志信息
+ * @sbi:指向超级块信息的指针实例
+ * @return:返回是否能获取一个新的空闲段标识
+ */
 int init_gc_logs(struct hmfs_sb_info *sbi)
 {
 	seg_t segno;
 	int ret;
 	block_t addr;
 	struct hmfs_checkpoint *hmfs_cp = CM_I(sbi)->last_cp_i->cp;
-
+	/**
+	 * 判断是否能从超级块信息中获取一个新的空闲段，如果成功了该段用来记录垃圾回收的日志信息，
+	 *
+	 */
 	ret = get_new_segment(sbi, &segno);
 	if (!ret) {
 		addr = __cal_page_addr(sbi, segno, 0);
@@ -1061,6 +1096,11 @@ int init_gc_logs(struct hmfs_sb_info *sbi)
 }
 
 /* Must call move_to_next_checkpoint() before this function */
+/**
+ *cc20 reinit_gc_logs: 在最新的检查点中重新初始化垃圾回收的日志记录
+ * @sbi:指向超级块信息的指针实例
+ *
+ */
 void reinit_gc_logs(struct hmfs_sb_info *sbi)
 {
 	seg_t old_segno;
@@ -1076,6 +1116,10 @@ void reinit_gc_logs(struct hmfs_sb_info *sbi)
 	 * NVM area. And we have make a checkpoint now. We need to set gc_logs
 	 * and nr_gc_segs for new 'last checkpoint'
 	 */
+	/**
+	 * 如果不能从NVM的Main Area中获取新的空闲段，则清除旧的段号名，同时对新的空闲段加1，否则将垃圾回收
+	 * 的旧的日志信息和段号更新最新的检查点信息
+	 */
 	if (!init_gc_logs(sbi)) {
 		lock_write_segmap(free_i);
 		if (test_and_clear_bit(old_segno, free_i->free_segmap))
@@ -1086,6 +1130,11 @@ void reinit_gc_logs(struct hmfs_sb_info *sbi)
 		hmfs_cp->nr_gc_segs = 0;
 	}
 }
+
+/**
+ *cc20 init_gc_stat:强垃圾回收的回收信息清零
+ *@sbi:指向超级块信息的指针实例
+ */
 
 void init_gc_stat(struct hmfs_sb_info *sbi) {
 	struct hmfs_stat_info *si = STAT_I(sbi);
