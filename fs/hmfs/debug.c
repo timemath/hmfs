@@ -33,6 +33,10 @@
 			"=========================================\n"
 
 #define USAGE_SIT	"=============== SIT USAGE ==============\n" \
+      			" `sit c`\n"\
+			"   -- check sit consistency to ssa\n"\
+      			" `sit s`\n"\
+			"   -- print segment number in Main Area\n"\
 			"=========================================\n"
 
 #define USAGE_NAT "nat"
@@ -587,6 +591,7 @@ static inline int print_error_segment(struct hmfs_sb_info *sbi,
 static int hmfs_print_sit(struct hmfs_sb_info *sbi, int args, 
 				char argv[][MAX_ARG_LEN + 1])
 {
+	const char *opt = argv[1];
 	int sit_blk_cnt, len=0;
 	int ssa_blk_cnt;
 	int blk_id = 0;
@@ -596,24 +601,29 @@ static int hmfs_print_sit(struct hmfs_sb_info *sbi, int args,
 	struct hmfs_summary *ssa_entry;
 
 
-	for (segno = 0; segno < TOTAL_SEGS(sbi); ++segno) {
-		ssa_blk = get_summary_block(sbi, segno);
-		ssa_entry = ssa_blk->entries;
-		ssa_blk_cnt = 0;
-		for (blk_id = 0; blk_id < HMFS_PAGE_PER_SEG; ++blk_id) {
+	if('c' == opt[0]) {
+		for (segno = 0; segno < TOTAL_SEGS(sbi); ++segno) {
+			ssa_blk = get_summary_block(sbi, segno);
+			ssa_entry = ssa_blk->entries;
+			ssa_blk_cnt = 0;
+			for (blk_id = 0; blk_id < HMFS_PAGE_PER_SEG; ++blk_id) {
 			if (get_summary_valid_bit(ssa_entry))//seems that le16 is ok
-				++ssa_blk_cnt;
-			ssa_entry++;
-		}
+					++ssa_blk_cnt;
+				ssa_entry++;
+			}
 
-		sit_blk_cnt = get_vblocks_from_sit(sbi, segno);
-		if (ssa_blk_cnt != sit_blk_cnt){
-			len = print_error_segment(sbi, segno, sit_blk_cnt, ssa_blk_cnt);
-			break;
+			sit_blk_cnt = get_vblocks_from_sit(sbi, segno);
+			if (ssa_blk_cnt != sit_blk_cnt){
+				len = print_error_segment(sbi, segno, sit_blk_cnt, ssa_blk_cnt);
+				break;
+			}
 		}
-	}
-	if (segno == TOTAL_SEGS(sbi)){
-		len = hmfs_print(STAT_I(sbi), 1, "no error found in SIT check!\n");
+		if (segno == TOTAL_SEGS(sbi)){
+			len = hmfs_print(STAT_I(sbi), 1, "no error found in SIT check!\n");
+		}
+	} else if ('s' == opt[0]) {
+		len = hmfs_print(STAT_I(sbi), 1, "Segment count: %lu\n", TOTAL_SEGS(sbi));
+		
 	}
 
 	return len;
@@ -841,8 +851,9 @@ static int hmfs_dispatch_cmd(struct hmfs_sb_info *sbi, const char *cmd,
 	} else if (0 == strncasecmp(argv[0], "sit", 3)) {
 		if (args == 1) {
 			hmfs_print(si, 0, USAGE_SIT);
-			res = hmfs_print_sit(sbi, args, argv);
+			return 0;
 		}
+		res = hmfs_print_sit(sbi, args, argv);
 	} else if (0 == strncasecmp(argv[0], "nat", 3)) {
 		if (args == 1) {
 			hmfs_print(si, 0, USAGE_NAT);
