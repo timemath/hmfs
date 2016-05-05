@@ -34,14 +34,17 @@ static struct kmem_cache *ro_file_address_cachep;
  * 程威宇的注释
  */
 static struct kmem_cache *mmap_block_slab;
-
+/*
+ * 当@level为0时(即数据地址直接存储在inode里时)返回0
+ * 否则返回除存储第@i个块地址的块以外，之前所有块里存储的地址总数
+ */
 static unsigned int start_block(unsigned int i, int level)
 {
 	if (level)
 		return i - ((i - NORMAL_ADDRS_PER_INODE) % ADDRS_PER_BLOCK);
 	return 0;
 }
-/*
+/*-
  * 减小有效块数
  * 将inode指向文件的占有块数减小count个
  * 同时使sbi对应超级块占有的有效块数减小count个
@@ -60,6 +63,11 @@ static int dec_valid_block_count(struct hmfs_sb_info *sbi,
 }
 
 /* Find the last index of data block which is meaningful*/
+/*
+ * 寻找某文件在一定范围内的最后一个有效块
+ * @dir指向对应文件
+ * 查找范围为@end_blk之前的所有块
+ */
 unsigned int hmfs_dir_seek_data_reverse(struct inode *dir, unsigned int end_blk)
 {
 	struct dnode_of_data dn;
@@ -116,7 +124,7 @@ unsigned int hmfs_dir_seek_data_reverse(struct inode *dir, unsigned int end_blk)
  *inode对应文件 end_blk为文件占用block数 start_pos为开始搜索的位置相对于文件开头的偏移量
  *type为SEEK_HOLE时搜索孔位置
  *type为SEEK_DATA时搜索非孔位置
- *返回值为对应位置起始处相对于文件起始处的block偏移数
+ *返回值为对应位置起始处相对于文件起始处的块偏移数
  */
 
 static unsigned int hmfs_file_seek_hole_data(struct inode *inode, 
@@ -285,11 +293,20 @@ out:
 }
 
 #ifdef CONFIG_HMFS_FAST_READ
+/*
+ * 判断只读文件是否可快速读取
+ * @addr_struct指向该只读文件
+ */
 static inline bool is_fast_read_file(struct ro_file_address *addr_struct)
 {
 	return addr_struct && (addr_struct->magic == HMFS_SUPER_MAGIC);
 }
-
+/*
+ * 创建一存储只读文件地址的结构体
+ * 该结构体存储于slab高速缓存中
+ * 结构体中文件起始地址等于@addr
+ * 结构体中计数等于@count
+ */
 static struct ro_file_address *new_ro_file_address(void *addr, unsigned int count)
 {
 	struct ro_file_address *addr_struct;
@@ -303,13 +320,21 @@ static struct ro_file_address *new_ro_file_address(void *addr, unsigned int coun
 	}
 	return addr_struct;
 }
-
+/*
+ * 从slab高速缓存中释放只读文件地址结构体
+ * @filp指向该文件
+ */
 static void free_ro_file_address(struct file *filp)
 {
 	kmem_cache_free(ro_file_address_cachep, filp->private_data);
 	filp->private_data = NULL;
 }
-
+/*
+ * 重映射文件到VMALLOC区域，用于只读文件加快读取
+ * @inode指向文件
+ * @pages指向VMALLOC区域中对应文件块地址
+ * @count规定映射的文件数据块范围为count之前的块
+ */
 static int remap_file_range(struct inode *inode, struct page **pages, int count)
 {
 	void **blocks_buf;
@@ -355,6 +380,10 @@ out:
  * Open file for hmfs, if it's a read-only file, then remap it into 
  * VMALLOC area to accelerate reading
  */
+/*
+ * 打开@inode和@filp对应文件
+ * 若该文件为只读文件，则重映射到VMALLOC区域从而加快读取
+ */
 int hmfs_file_open(struct inode *inode, struct file *filp)
 {
 	int ret;
@@ -395,7 +424,11 @@ free_pages:
 	kfree(pages);
 	return 0;
 }
-
+/*
+ * 释放@inode和@filp指向文件
+ * 若为映射到VMALLOC区域中的文件还需释放对应缓存
+ * 若inode标记为脏还需同步到存储介质
+ */
 static int hmfs_release_file(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
@@ -424,7 +457,11 @@ static int hmfs_release_file(struct inode *inode, struct file *filp)
 
 	return ret;
 }
-
+/*
+ * 读取映射到VMALLOC区域的只读文件
+ * @filp指向文件，@buf指向缓冲区地址
+ * @len为读取长度，@ppos指向读取区域偏移量
+ */
 static ssize_t hmfs_file_fast_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
 {
@@ -450,7 +487,12 @@ static ssize_t hmfs_file_fast_read(struct file *filp, char __user *buf,
 	*ppos = *ppos + copied;
 	return err ? err : copied - left;
 }
-
+/*
+ * 读取普通文件
+ * @filp指向文件，@buf指向缓冲区地址
+ * @len为读取长度，@ppos指向读取区域偏移量
+ * 先判断是否为快速读取文件再分别调用相应函数进行读取
+ */
 static ssize_t hmfs_xip_file_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
 {
@@ -470,7 +512,11 @@ out:
 	inode_read_unlock(filp->f_inode);
 	return ret;
 }
-
+/*
+ * 初始化快速读取文件的地址缓存
+ * 使全局变量ro_file_address_cachep等于对应slab缓冲区地址
+ * 成功分配则返回0否则返回-ENOMEM
+ */
 int init_ro_file_address_cache(void)
 {
 	ro_file_address_cachep = hmfs_kmem_cache_create("hmfs_ro_address_cache",
@@ -479,7 +525,11 @@ int init_ro_file_address_cache(void)
 		return -ENOMEM;
 	return 0;
 }
-
+/*
+ * 释放快速读取文件的地址缓存
+ * 调用kmem_cache_destroy
+ * 释放全局变量ro_file_address_cachep在slab中的高速缓存
+ */
 void destroy_ro_file_address_cache(void)
 {
 	kmem_cache_destroy(ro_file_address_cachep);
