@@ -1098,7 +1098,11 @@ out:
 
 	return ret;
 }
-
+/*
+ * 扩展文件大小为@offset+@len，并将@inode的flag标记为FI_DIRTY_SIZE
+ * @inode指向文件
+ * 成功则返回0
+ */
 static int expand_inode_data(struct inode *inode, loff_t offset, loff_t len,
 			     int mode)
 {
@@ -1155,7 +1159,12 @@ out:
 
 	return ret;
 }
-
+/*
+ * 使@pfn指向
+ * mmap的@inode文件第@index个页面
+ * 在实际存储介质当中所在的块号
+ * 若@vm_type为VM_WRITE则是创建第@index个页面，再使pfn指向其块号
+ */
 static int hmfs_get_mmap_block(struct inode *inode, pgoff_t index, 
 				unsigned long *pfn, int vm_type)
 {
@@ -1188,7 +1197,10 @@ static int hmfs_get_mmap_block(struct inode *inode, pgoff_t index,
 out:
 	return 0;
 }
-
+/*
+ * 释放@vma指向的vm_area_struct结构体中
+ * 从vm_start到vm_end之间的虚拟内存对应的内存块
+ */
 static void hmfs_filemap_close(struct vm_area_struct *vma)
 {
 	struct address_space *mapping = vma->vm_file->f_mapping;
@@ -1210,7 +1222,11 @@ static void hmfs_filemap_close(struct vm_area_struct *vma)
 		pg_start++;
 	}
 }
-
+/*
+ * 新建一个mmap块
+ * 并将@mm,@vaddr,@pgoff赋值到其所在的hmfs_mmap_block结构体当中
+ * 再将此结构体添加到@sbi的mmap_block_list中
+ */
 int add_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 				unsigned long vaddr, unsigned long pgoff)
 {
@@ -1231,7 +1247,12 @@ int add_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 	unlock_mmap(sbi);
 	return 0;
 }
-
+/*
+ * 移除mmap块
+ * @sbi存储对应超级块信息
+ * @*mm表示要移除的vm区域
+ * @pgoff表示要移除的块号
+ */
 int remove_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 				unsigned long pgoff)
 {
@@ -1279,7 +1300,11 @@ free:
 	unlock_mmap(sbi);
 	return 0;
 }
-
+/*
+ * 返回文件映射错误信息
+ * @vma指向对应虚拟地址空间
+ * @vmf存储出错信息
+ */
 static int hmfs_filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct address_space *mapping = vma->vm_file->f_mapping;
@@ -1363,6 +1388,15 @@ int hmfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 }
 
 /* Pre-allocate space for file from offset to offset + len */
+/*
+ * 预分配空间
+ * @file指向对应文件
+ * @offset为预分配空间的起始处
+ * @len为预分配的空间长度
+ * @mode&FALLOC_FL_PUNCH_HOLE不为零时，调用punch_hole函数在对应位置处打孔
+ * 否则调用expand_inode_data函数直接增加文件大小
+ * 成功时返回0
+ */
 static long hmfs_fallocate(struct file *file, int mode, loff_t offset,
 			   loff_t len)
 {
