@@ -15,12 +15,20 @@
 #include <linux/posix_acl.h>
 #include "hmfs.h"
 #include "hmfs_fs.h"
-
+/**
+ * 判断@dir指向文件是否能插入内嵌数据
+ */
 static bool hmfs_may_set_inline_data(struct inode *dir)
 {
 	return test_opt(HMFS_I_SB(dir), INLINE_DATA);
 }
-
+/**
+ * 申请一个新的inode
+ * @dir指向新的inode所在的目录
+ * @mode表明新的inode所对应的文件类型
+ * 成功则返回申请的inode的结构体指针
+ * 否则返回错误信息
+ */
 static struct inode *hmfs_new_inode(struct inode *dir, umode_t mode)
 {
 	struct super_block *sb = dir->i_sb;
@@ -92,7 +100,14 @@ fail:
 		alloc_nid_failed(sbi, ino);
 	return ERR_PTR(err);
 }
-
+/**
+ * 在已有目录下新建目录项
+ * @dir指向现有目录文件inode
+ * @dentry指向要新建的目录项结构体
+ * @mode对应文件类型
+ * 成功时返回新建目录项的inode指针
+ * 否则返回错误信息
+ */
 struct inode *hmfs_make_dentry(struct inode *dir, struct dentry *dentry,
 				umode_t mode)
 {
@@ -123,7 +138,13 @@ out:
 	alloc_nid_failed(sbi, inode->i_ino);
 	return ERR_PTR(err);
 }
-
+/**
+ * 创建新的设备文件目录项并将其与其special inode关联
+ * @dir指向现有目录
+ * @dentry指向新目录项
+ * @mode表明文件类型
+ * @rdev对应设备文件号
+ */
 static int hmfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 				dev_t rdev)
 {
@@ -144,7 +165,13 @@ static int hmfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 
 	return 0;
 }
-
+/**
+ * 创建新的普通文件目录项并将其与其inode关联
+ * @dir指向现有目录
+ * @dentry指向新目录项
+ * @mode表明文件类型
+ * @excl无意义
+ */
 static int hmfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 				bool excl)
 {
@@ -162,7 +189,12 @@ static int hmfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 
 	return 0;
 }
-
+/**
+ * 创建新的目录文件目录项并将其与其inode关联
+ * @dir指向现有目录
+ * @dentry指向新目录项
+ * @mode表明文件类型
+ */
 static int hmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;
@@ -180,7 +212,12 @@ static int hmfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 
 	return 0;
 }
-
+/**
+ * 创建硬链接
+ * @old_dentry为文件原目录项
+ * @dir无意义
+ * @dentry为文件新目录项
+ */
 static int hmfs_link(struct dentry *old_dentry, struct inode *dir,
 				struct dentry *dentry)
 {
@@ -204,7 +241,11 @@ out:
 	iput(inode);
 	return err;
 }
-
+/**
+ * 删除硬链接
+ * @dir指向文件inode
+ * @dentry指向要删除的目录项
+ */
 static int hmfs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct super_block *sb = dir->i_sb;
@@ -242,7 +283,11 @@ static int hmfs_unlink(struct inode *dir, struct dentry *dentry)
 fail:
 	return err;
 }
-
+/**
+ * 检查目录项是否为空，是则删除硬链接，否则返回错误信息
+ * @dir指向文件inode
+ * @dentry指向要检查的目录项
+ */
 static int hmfs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
@@ -252,7 +297,13 @@ static int hmfs_rmdir(struct inode *dir, struct dentry *dentry)
 
 	return -ENOTEMPTY;
 }
-
+/**
+ * 重命名文件，由于采用log-structured，文件目录项和inode都会改变
+ * @old_dir指向旧的文件inode
+ * @old_dentry指向旧的目录项
+ * @new_dir指向新的文件inode
+ * @new_dentry指向新的文件目录项
+ */
 static int hmfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		       struct inode *new_dir, struct dentry *new_dentry)
 {
@@ -356,7 +407,7 @@ out_k:
 out:
 	return err;
 }
-/*
+/**
  * 获取dentry->d_inode的文件属性
  * 将其复制到stat指向的kstat结构体里
  * 并将stat->blocks左移3位
@@ -371,7 +422,7 @@ int hmfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 }
 
 #ifdef CONFIG_HMFS_ACL
-/*
+/**
  * 更新@inode属性
  * @attr指向存储要更新的属性的结构体
  */
@@ -402,7 +453,7 @@ static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 #else
 #define __setattr_copy setattr_copy
 #endif
-/*
+/**
  * 更新文件inode属性的包装函数
  * 先判断inode权限决定是否可更新相应属性，再调用__setattr_copy更新属性
  * @dentry指向对应文件inode
@@ -451,7 +502,14 @@ out:
 	mark_inode_dirty(inode);
 	return err;
 }
-
+/**
+ * 寻找某个孤立目录项对应的inode并将其链接起来
+ * @dir指向父目录inode
+ * @dentry指向要寻找的孤立目录项
+ * @flags无意义
+ * 若找到了则返回对应目录项
+ * 没找到则返回NULL
+ */
 static struct dentry *hmfs_lookup(struct inode *dir, struct dentry *dentry,
 				  unsigned int flags)
 {
@@ -472,7 +530,9 @@ static struct dentry *hmfs_lookup(struct inode *dir, struct dentry *dentry,
 
 	return d_splice_alias(inode, dentry);
 }
-
+/**
+ * 定义hmfs对目录文件inode操作的接口
+ */
 const struct inode_operations hmfs_dir_inode_operations = {
 	.create = hmfs_create,
 	.mkdir = hmfs_mkdir,
@@ -493,7 +553,11 @@ const struct inode_operations hmfs_dir_inode_operations = {
 	.removexattr = generic_removexattr,
 #endif
 };
-
+/**
+  *定义hmfs对于special inode的操作与VFS的接口
+  *主要包括getattr,setattr,listxattr等
+  *其他采用通用接口
+  */
 const struct inode_operations hmfs_special_inode_operations = {
 	.getattr = hmfs_getattr,
 	.setattr = hmfs_setattr,
