@@ -20,7 +20,11 @@
  * Hashing code copied from ext3
  */
 #define DELTA 0x9E3779B9
-
+/**
+ * TEA加密算法
+ * @buf  buf[0],buf[1] 明文
+ * @in  秘钥
+ */
 static void TEA_transform(unsigned int buf[4], unsigned int const in[])
 {
 	__u32 sum = 0;
@@ -37,7 +41,13 @@ static void TEA_transform(unsigned int buf[4], unsigned int const in[])
 	buf[0] += b0;
 	buf[1] += b1;
 }
-
+/**
+ *字符串转int
+ *@msg 输入字符串
+ *@size_t len 字符串长度
+ *@buf 输出int数组
+ *@num  输出缓冲区长度
+ */
 static void str2hashbuf(const unsigned char *msg, size_t len, 
 				unsigned int *buf, int num)
 {
@@ -65,7 +75,9 @@ static void str2hashbuf(const unsigned char *msg, size_t len,
 	while (--num >= 0)
 		*buf++ = pad;
 }
-
+/**
+ *文件名哈希函数
+ */
 hmfs_hash_t hmfs_dentry_hash(const struct qstr *name_info)
 {
 	__u32 hash;
