@@ -41,7 +41,9 @@ static LIST_HEAD(hmfs_stat_list);
 static struct dentry *debugfs_root;
 
 static int hmfs_dispatch_cmd(struct hmfs_sb_info *, const char *cmd, int len);
-
+/**
+ * 更新文件系统的NAT统计信息
+ */
 void update_nat_stat(struct hmfs_sb_info *sbi, int flush_count)
 {
 	struct hmfs_stat_info *stat_i = STAT_I(sbi);
@@ -52,7 +54,9 @@ void update_nat_stat(struct hmfs_sb_info *sbi, int flush_count)
 	stat_i->nr_flush_nat_per_block[div64_u64(flush_count, 50)]++;
 	unlock_hmfs_stat(stat_i);
 }
-
+/**
+ * 打印文件系统相关信息
+ */
 static int stat_show(struct seq_file *s, void *v)
 {
 	struct hmfs_stat_info *si = s->private;
@@ -130,7 +134,11 @@ static int stat_show(struct seq_file *s, void *v)
 
 	return 0;
 }
-
+/**
+ * 获取指定segment的状态
+ * @sbi 文件系统超级块
+ * @i  段号
+ */
 static char get_segment_state(struct hmfs_sb_info *sbi, seg_t i)
 {
 	struct free_segmap_info *free_i = FREE_I(sbi);
@@ -144,7 +152,9 @@ static char get_segment_state(struct hmfs_sb_info *sbi, seg_t i)
 		return '^';
 	else return '@';
 }
-
+/**
+ * 打印所有段状态信息
+ */
 static int vb_show(struct seq_file *s, void *v)
 {
 	struct hmfs_stat_info *si = s->private;
@@ -168,12 +178,16 @@ static int vb_show(struct seq_file *s, void *v)
 
 	return 0;
 }
-
+/**
+ * seq_file的接口函数， 实现stat信息的查询
+ */
 static int stat_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, stat_show, inode->i_private);
 }
-
+/**
+ * seq_file的接口函数，实现段信息的查询
+ */
 static int vb_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, vb_show, inode->i_private);
@@ -197,7 +211,13 @@ static int info_open(struct inode *inode, struct file *file)
 {
 	return 0;
 }
-
+/**
+ * 从内核区往用户区读取debug文件
+ * @file 读取的文件
+ * @buffer 用户区读取缓存
+ * @count 读取的大小
+ * @ppos buffer的开始偏移
+ */
 static ssize_t info_read(struct file *file, char __user * buffer, size_t count,
 			 loff_t * ppos)
 {
@@ -221,6 +241,9 @@ static ssize_t info_read(struct file *file, char __user * buffer, size_t count,
 }
 
 //'buffer' being added "\n" at the tail automatically.
+/**
+ *写debug文件
+ */
 static ssize_t info_write(struct file *file, const char __user * buffer,
 			  size_t count, loff_t * ppos)
 {
@@ -251,7 +274,10 @@ struct file_operations info_fops = {
 	.read = info_read,
 	.write = info_write,
 };
-
+/**
+ *为 hmfs_stat_info申请缓存空间
+ *@c  缓存的大小
+ */
 static int hmfs_build_info(struct hmfs_sb_info *sbi, size_t c)
 {
 	struct hmfs_stat_info *si = STAT_I(sbi);
@@ -264,7 +290,9 @@ static int hmfs_build_info(struct hmfs_sb_info *sbi, size_t c)
 		return -ENOMEM;
 	return 0;
 }
-
+/**
+ * 释放 hmfs_stat_info申请的缓存
+ */
 static void hmfs_destroy_info(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_stat_info *si = STAT_I(sbi);
@@ -274,7 +302,9 @@ static void hmfs_destroy_info(struct hmfs_sb_info *sbi)
 	kfree(si->buffer);
 	si->buffer = NULL;
 }
-
+/**
+ * 建立hmfs_stat_info结构
+ */
 int hmfs_build_stats(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_stat_info *si;
@@ -312,7 +342,9 @@ int hmfs_build_stats(struct hmfs_sb_info *sbi)
 
 	return 0;
 }
-
+/**
+ * 销毁hmfs_stat_info结构
+ */
 void hmfs_destroy_stats(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_stat_info *si = sbi->stat_info;
@@ -324,12 +356,16 @@ void hmfs_destroy_stats(struct hmfs_sb_info *sbi)
 
 	kfree(si);
 }
-
+/**
+ * 创建debug文件目录
+ */
 void hmfs_create_root_stat(void)
 {
 	debugfs_root = debugfs_create_dir("hmfs", NULL);
 }
-
+/**
+ * 删除debug文件目录
+ */
 void hmfs_destroy_root_stat(void)
 {
 	debugfs_remove_recursive(debugfs_root);
@@ -341,6 +377,10 @@ void hmfs_destroy_root_stat(void)
  * 	@buffer : file buffer
  * 	@mode : 1 means appending, 0 will erase all data in the buffer.
  * 	@return : number of bytes written to file buffer
+ */
+/**
+ *打印消息至hmfs_stat_info缓存中
+ *@mode  0 擦除原有数据写   1接着原有数据写
  */
 int hmfs_print(struct hmfs_stat_info *si, int mode, const char *fmt, ...)
 {
@@ -361,6 +401,10 @@ int hmfs_print(struct hmfs_stat_info *si, int mode, const char *fmt, ...)
 }
 
 //return how many bytes written to file buffer
+/**
+ * 打印hmfs_checkpoint信息至hmfs_stat_info缓存中
+ * @detail 0 只打印CP版本信息    1打印CP所有信息
+ */
 static int print_cp_one(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *cp,
 				int detail)
 {
@@ -416,7 +460,10 @@ static int print_cp_one(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *cp,
 	}
 	return len;
 }
-
+/**
+ * 打印第n个CP信息
+ * @detail 0 只打印CP版本信息    1打印CP所有信息
+ */
 static int print_cp_nth(struct hmfs_sb_info *sbi, int n, int detail)
 {
 	size_t i = 0;
@@ -434,7 +481,10 @@ static int print_cp_nth(struct hmfs_sb_info *sbi, int n, int detail)
 	}
 	return print_cp_one(sbi, hmfs_cp, detail);
 }
-
+/**
+ * 打印所有CP信息
+ * @detail 0 只打印CP版本信息    1打印CP所有信息
+ */
 static int print_cp_all(struct hmfs_sb_info *sbi, int detail)
 {
 	size_t len = 0;
@@ -462,6 +512,9 @@ static int print_cp_all(struct hmfs_sb_info *sbi, int detail)
      cp a    [<d>]  -- dump whole checkpoint list on NVM.
      cp             -- print this usage.
      set option 'd' 0 will not give the detail info, default is 1
+ */
+/**
+ * CP命令行解析函数
  */
 static int hmfs_print_cp(struct hmfs_sb_info *sbi, int args, 
 				char argv[][MAX_ARG_LEN + 1])
@@ -491,6 +544,10 @@ static int hmfs_print_cp(struct hmfs_sb_info *sbi, int args,
  * print_ssa_one -- dump a segment summary entry to file buffer.
  *	@blk_idx : the index of summary block.
  */
+/**
+ * 打印块的SSA消息
+ * @blk_addr块地址
+ */
 static size_t print_ssa_one(struct hmfs_sb_info *sbi, block_t blk_addr)
 {
 	size_t len = 0;
@@ -514,7 +571,11 @@ static size_t print_ssa_one(struct hmfs_sb_info *sbi, block_t blk_addr)
 
 	return len;
 }
-
+/**
+ * 打印范围数据块的SSA消息
+ * @idx_from  起始数据块偏移
+ * @idx_to 结束数据块偏移
+ */
 static int print_ssa_range(struct hmfs_sb_info *sbi, block_t idx_from,
 			   block_t idx_to)
 {
@@ -530,7 +591,10 @@ static int print_ssa_range(struct hmfs_sb_info *sbi, block_t idx_from,
 	}
 	return len;
 }
-
+/**
+ * 打印segment中所有块的SSA
+ * @segno  segment号
+ */
 static size_t print_ssa_per_seg(struct hmfs_sb_info *sbi, block_t segno)
 {
 	block_t idx_from = segno << HMFS_PAGE_PER_SEG_BITS;
@@ -541,6 +605,9 @@ static size_t print_ssa_per_seg(struct hmfs_sb_info *sbi, block_t segno)
   Usage:
       ssa <idx1> <idx2>	-- dump summary of [idx1, idx2]th block 
       ssa <segno>	-- dump summary of all blocks in [segno]th segment
+ */
+/**
+ * 打印ssa的命令行解析函数
  */
 static int hmfs_print_ssa(struct hmfs_sb_info *sbi, int args, 
 				char argv[][MAX_ARG_LEN + 1])
@@ -565,19 +632,25 @@ static int hmfs_print_ssa(struct hmfs_sb_info *sbi, int args,
 	len += cnt;
 	return len;
 }
-
+/**
+ * 获取segment相对应sit中vblocks变量
+ */
 static inline int get_vblocks_from_sit(struct hmfs_sb_info *sbi, seg_t segno)
 {
 	return __le16_to_cpu(get_sit_entry(sbi, segno)->vblocks);
 }
-
+/**
+ * 打印segment错误提示
+ */
 static inline int print_error_segment(struct hmfs_sb_info *sbi, 
 				seg_t segno, int sit_blk_cnt, int ssa_blk_cnt)
 {
 	return hmfs_print(STAT_I(sbi), 1, "segment #%d *ERROR*, cnt in SIT: %d"
 			  "cnt in SSA: %d\n", segno, sit_blk_cnt, ssa_blk_cnt);
 }
-
+/**
+ *扫描所有segment的sit和其中块的ssa，统计两者有效块是否相等， 打印第一个出错的块或打印无错误
+ */
 static int hmfs_print_sit(struct hmfs_sb_info *sbi, int args, 
 				char argv[][MAX_ARG_LEN + 1])
 {
@@ -624,7 +697,9 @@ static int hmfs_print_data(struct hmfs_sb_info *sbi, int args,
 {
 	return 0;
 }
-
+/**
+ * 检测块的SSA信息,并输出其与输入参数的不同
+ */
 static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr,
 			  block_t blk_addr, size_t h, size_t offset,
 			  block_t nid)
@@ -673,7 +748,9 @@ static int hmfs_check_ssa(struct hmfs_sb_info *sbi, block_t cp_addr,
 
 	return ret_val;
 }
-
+/**
+ * 遍历检查NAT树所有节点的SSA信息是否有错
+ */
 static int traverse_nat(struct hmfs_sb_info *sbi, block_t cp_addr,
 			block_t root_addr, size_t h, block_t nid)
 {
@@ -720,6 +797,9 @@ static int traverse_nat(struct hmfs_sb_info *sbi, block_t cp_addr,
  *	check consistency of meta info on NVM.
  * @return: return the error code; 0, no error.
  */
+/**
+ * 打印所有cp信息，并检验其NAT树
+ */
 static int hmfs_consis(struct hmfs_sb_info *sbi)
 {
 	int err = 0;
@@ -762,6 +842,11 @@ static int hmfs_consis(struct hmfs_sb_info *sbi)
 #define IS_BLANK(ch) (' ' == (ch) || '\t' == (ch) || '\n' == (ch))
 
 //return: < 0, error; else, args;
+/**
+ *解析分解命令行指令
+ *@len 指令长度
+ *@argv 分解后的命令字符串
+ */
 static int hmfs_parse_cmd(const char *cmd, size_t len,
 			  char argv[][MAX_ARG_LEN + 1])
 {
@@ -803,6 +888,9 @@ static int hmfs_parse_cmd(const char *cmd, size_t len,
  *
  * RETURN VALUE:
  * 	success with the length of written file buffer, else -EFAULT;
+ */
+/**
+ * 根据不同的cmd命令调用不同的函数
  */
 static int hmfs_dispatch_cmd(struct hmfs_sb_info *sbi, const char *cmd, 
 				int len)
