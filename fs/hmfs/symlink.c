@@ -3,7 +3,9 @@
 #include <linux/namei.h>
 #include "hmfs_fs.h"
 #include "hmfs.h"
-
+/**
+ * 在dir内建立一个符号链接文件并将其内容赋值为symname
+ */
 int hmfs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 {
 	struct inode *inode;
@@ -38,7 +40,9 @@ int hmfs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 
 	return 0;
 }
-
+/**
+ *读取符号链接文件的内容
+ */
 static int hmfs_readlink(struct dentry *dentry, char __user * buffer,
 				int buflen)
 {
@@ -55,7 +59,9 @@ static int hmfs_readlink(struct dentry *dentry, char __user * buffer,
 	return vfs_readlink(dentry, buffer, buflen, data_blk[0]);
 
 }
-
+/**
+ * 找到符号链接所代表的文件
+ */
 static void *hmfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 {
 	struct inode *inode = dentry->d_inode;
@@ -68,7 +74,7 @@ static void *hmfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 	inode_read_unlock(inode);
 	if (err || size != 1 || data_blk[0] == NULL)
 		return ERR_PTR(-ENODATA);
-	nd_set_link(nd, data_blk[0]);
+	nd_set_link(nd,  [0]);
 	return 0;
 }
 
