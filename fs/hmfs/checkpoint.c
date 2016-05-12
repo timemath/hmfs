@@ -1003,7 +1003,7 @@ static int do_checkpoint(struct hmfs_sb_info *sbi)
 	return 0;
 }
 /**
- *cc27 write_checkpoint:对所有脏的inode进行检查点写的操作
+ *cc27 write_checkpoint:对所有脏的inode进行检查点写的操作，返回要写入检查点的entry的数目
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0
  */
@@ -1017,7 +1017,9 @@ int write_checkpoint(struct hmfs_sb_info *sbi, bool unlock)
 	ret = block_operations(sbi);
 	if (ret)
 		return ret;
-
+    /**
+     *如果脏的entry的数目为0，则返回要写检查点的entry数为0
+     */
 	if (!sit_i->dirty_sentries) {
 		ret = 0;
 		goto unlock;
@@ -1031,7 +1033,12 @@ unlock:
 	}
 	return ret;
 }
-
+/**
+ *cc28 redo_checkpoint:根据前一个检查点的信息，重做上一次检查点的工作，以恢复系统
+ *@sbi:指向当前版本下超级块信息的实例
+ *@prev_cp:前一个检查点
+ *@return:成功返回0
+ */
 int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
 {
 	//XXX:after sbi initilization?
@@ -1045,6 +1052,9 @@ int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
 	void *nat_root;
 
 	/* 1. restore addr */
+	/**
+	 * 根据前一个检查点存储其地址，同时获取其所在的summary表，并且设置有效位
+	 */
 	store_cp_addr = le64_to_cpu(prev_cp->state_arg_2);
 	store_cp = ADDR(sbi, store_cp_addr);
 
@@ -1055,14 +1065,23 @@ int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
 	set_summary_valid_bit(summary);
 
 	/* 2. flush cp-inlined SIT journal */
+	/**
+	 *根据前一个检查点重做之前SIT日志的记录工作
+	 */
 	recovery_sit_entries(sbi, prev_cp);
 
 	/* 3. mark valid */
+	/**
+	 * 根据前一个检查点的版本记录当前版本，同时记录NAT表的根节点所在的块，并且根据当前环境下的NAT和检查点记录哪些块时有效的
+	 */
 	store_version = le32_to_cpu(store_cp->checkpoint_ver);
 	nat_root = ADDR(sbi, le32_to_cpu(store_cp->nat_addr));
 	mark_block_valid(sbi, nat_root, store_cp);
 
 	/* 4. connect to super */
+	/**
+	 * 记录下一个检查点，将检查点的信息写入超级块，并进行相应地校验
+	 */
 	next_cp = ADDR(sbi, le64_to_cpu(store_cp->next_cp_addr));
 	hmfs_memcpy_atomic(&prev_cp->next_cp_addr, &store_cp_addr, 8);
 	hmfs_memcpy_atomic(&next_cp->prev_cp_addr, &store_cp_addr, 8);
@@ -1071,6 +1090,9 @@ int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
 	set_struct(raw_super, checksum, sb_checksum);
 	
 	//TODO: memory barrier?
+	/**
+	 *将当前检查点信息存入CP树中
+	 */
 	raw_super = next_super_block(raw_super);
 	hmfs_memcpy(raw_super, ADDR(sbi, 0), sizeof(struct hmfs_super_block));
 	
@@ -1083,13 +1105,27 @@ int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
 }
 
 /* Clear summary bit and update SIT valid blocks */
+/**
+ *cc29 invalidate_block:根据块的summary表，清除有效位，更新SIT表的entry信息
+ *@sbi:指向当前版本下超级块信息的实例
+ *@addr:块的地址
+ *@summary:块的summary表信息
+ */
 static void invalidate_block(struct hmfs_sb_info *sbi, block_t addr,
 				struct hmfs_summary *summary)
 {
 	clear_summary_valid_bit(summary);
 	update_sit_entry(sbi, GET_SEGNO(sbi, addr), -1);
 }
-
+/**
+ *cc30 __delete_checkpoint:删除当前检查点信息，恢复上一个检查点的状态
+ *@sbi:指向当前版本下超级块信息的实例
+ *@cur_node：当前节点
+ *@next_node：下一个节点
+ *@prev_ver:以前的版本
+ *@next_ver:下一个版本
+ *@return:成功返回0，失败返回1
+ */
 static int __delete_checkpoint(struct hmfs_sb_info *sbi, void *cur_node,
 				void *next_node, ver_t prev_ver, ver_t next_ver)
 {
@@ -1097,7 +1133,9 @@ static int __delete_checkpoint(struct hmfs_sb_info *sbi, void *cur_node,
 	struct hmfs_summary *cur_sum, *next_sum;
 	bool delete_this = false;
 	int i;
-
+    /**
+     *获取当前节点块的版本号，如果现在的版本号大于了以前的版本号，就给删除标识置为1
+     */
 	cur_sum = get_summary_by_addr(sbi, L_ADDR(sbi, cur_node));
 	cur_node_ver = get_summary_start_version(cur_sum);
 	if (!next_node) {
@@ -1110,6 +1148,10 @@ static int __delete_checkpoint(struct hmfs_sb_info *sbi, void *cur_node,
 	next_node_ver = get_summary_start_version(next_sum);
 
 	/* this block is COW */
+	/**
+	 *删除当前节点的版本号不等于下一个节点的版本号，且现在的版本号大于了以前的版本号，就给删除标识置为1
+	 *否则这如果没有任何先前的检查点指向了该块，下一个节点所在的版本号赋值给当前节点的版本号
+	 */
 	if (cur_node_ver != next_node_ver) {
 		hmfs_bug_on(sbi, cur_node_ver > next_node_ver);
 		/* Not any previous checkpoint refer to this block */
@@ -1129,7 +1171,10 @@ delete:
 		/* Invalidate this block */
 		invalidate_block(sbi, L_ADDR(sbi, cur_node), cur_sum);
 	}
-
+    /**
+     *获取当前块的summary表的类型，如果是NAT节点块，分别获取当前节点的地址传给孩子节点，和下一个节点的地址
+     *删除当前NATnode块中所有孩子节点及其邻近节点
+     */
 	switch (get_summary_type(cur_sum)) {
 	case SUM_TYPE_NATN: {
 		__le64 *cur_child, *next_child;
@@ -1148,7 +1193,9 @@ delete:
 		}
 		return 0;
 	}
-
+    /**
+     *如果是NAT的数据块，删除当前NAT数据块中所有孩子节点及其邻近节点
+     */
 	case SUM_TYPE_NATD: {
 		struct hmfs_nat_entry *cur_entry, *next_entry;
 		void *cur_child, *next_child;
@@ -1168,7 +1215,9 @@ delete:
 		}
 		return 0;
 	}
-
+   /**
+    *如果是NATinode块，如果下一个nide不是inode，则基于前一个检查点，删除当前节点的孩子节点
+    */
 	case SUM_TYPE_INODE: {
 		struct hmfs_inode *cur_inode, *next_inode;
 		void *cur_child, *next_child;
@@ -1186,6 +1235,9 @@ delete:
 		next_inode = (struct hmfs_inode *)next_node;
 
 		/* Delete extended data block */
+		/**
+		 *删除扩展的数据块
+		 */
 		for_each_xblock(cur_inode, xaddr, i) {
 			if (!xaddr)
 				continue;
@@ -1197,6 +1249,9 @@ delete:
 		}
 		
 		/* Delete data blocks */
+		/**
+		 *删除数据块
+		 */
 		cur_db = cur_inode->i_addr;
 		next_db = next_node ? next_inode->i_addr : NULL;
 		for (i = 0; i < NORMAL_ADDRS_PER_INODE; i++,
@@ -1211,7 +1266,9 @@ delete:
 
 		/* We don't need to handle nid. Because they are in NAT entry block, too */
 	}
-	
+	/**
+	 *如果下一个node不是direct node,那么在下一个检查的中删除这个node，孩子节点也基于以前的检查点信息删除掉
+	 */
 	case SUM_TYPE_DN: {
 		__le64 *cur_db, *next_db;
 		struct direct_node *cur_dn, *next_dn;
@@ -1254,7 +1311,12 @@ delete:
 		return 1;
 	}
 }
-
+/**
+ *cc31 do_delete_checkpoint:做删除检查点的操作
+ *@sbi:指向当前版本下超级块信息的实例
+ *@cur_addr:当前地址
+ *@return:成功返回0，失败，返回错误标识
+ */
 static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 {
 	struct hmfs_checkpoint *next_cp, *prev_cp, *last_cp, *cur_cp;
@@ -1271,13 +1333,17 @@ static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 	next_cp = ADDR(sbi, le64_to_cpu(cur_cp->next_cp_addr));
 	prev_cp = ADDR(sbi, le64_to_cpu(cur_cp->prev_cp_addr));
 	last_cp = CM_I(sbi)->last_cp_i->cp;
-
+    /**
+     * 如果只有1个有效的检查点，则返回出错信息
+     */
 	if (cur_cp == prev_cp) {
 		/* Only 1 valid checkpoint */
 		hmfs_bug_on(sbi, cur_cp != next_cp);
 		return -ENODATA; 
 	}
-
+    /**
+     *如果当前检查点等于上一个检查点，则删除最新的检查点
+     */
 	if (cur_cp == last_cp) {
 		/* We want to delete the newest checkpoint */
 		next_root = NULL;
@@ -1286,7 +1352,9 @@ static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 		next_root = ADDR(sbi, le64_to_cpu(next_cp->nat_addr));
 		next_ver = le32_to_cpu(next_cp->checkpoint_ver);
 	}
-
+    /**
+     *如果当前检查点的前一个检查点等于超级块记录里的上一个检查点，则删除最旧的检查点
+     */
 	if (prev_cp == last_cp) {
 		/* We want to delete the oldest checkpoint */
 		prev_ver = HMFS_DEF_DEAD_VER;
@@ -1302,6 +1370,9 @@ static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 				prev_ver, next_ver);
 
 	/* Delete orphan blocks */
+	/**
+	 *删除孤立的块
+	 */
 	for (i = 0; i < NUM_ORPHAN_BLOCKS; i++) {
 		if (!cur_cp->orphan_addrs[i])
 			break;
@@ -1311,19 +1382,31 @@ static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 	}
 
 	/* Delete checkpoint block */
+	/**
+	 *删除检查点所在的块
+	 */
 	summary = get_summary_by_addr(sbi, cur_addr);
 	invalidate_block(sbi, cur_addr, summary);
 
 	/* Set valid bit of deleted blocks */
+	/**
+	 *设置被删除块的有效位
+	 */
 	flush_sit_entries_rmcp(sbi);
 
 	/* Link cp list */
+	/**
+	 *链接检查点所在的链表
+	 */
 	prev_addr = cur_cp->prev_cp_addr;
 	next_addr = cur_cp->next_cp_addr;
 	next_cp->prev_cp_addr = cur_cp->prev_cp_addr;
 	prev_cp->next_cp_addr = cur_cp->next_cp_addr;
 
 	/* If delete newest checkpoint, we should modify super block */
+	/**
+	 *如果删除了最新的检查点，应该修改超级块
+	 */
 	if (next_root == NULL) {
 		set_fs_state(prev_cp, HMFS_NONE);
 		raw_super = HMFS_RAW_SUPER(sbi);
@@ -1336,16 +1419,25 @@ static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 
 	return 0;
 }
-
+/**
+ *cc32 delete_checkpoint：删除检查点，并返回标识
+ *@sbi:指向当前版本下超级块信息的实例
+ *@version:版本号
+ *@return:如果成功，返回删除标识；如果失败，返回错误标识
+ */
 int delete_checkpoint(struct hmfs_sb_info *sbi, ver_t version)
 {
 	struct checkpoint_info *del_cp_i = NULL;
 	int ret = 0;
-
+    /**
+     *获取checkpoint链表的信息，如果失败，返回错误标识
+     */
 	del_cp_i = get_checkpoint_info(sbi, version, false);
 	if (!del_cp_i)
 		return -EINVAL;
-
+    /**
+     *写检查点的对所有脏的entry所在的检查点做相应的删除工作
+     */
 	lock_gc(sbi);
 	ret = write_checkpoint(sbi, false);
 	ret = do_delete_checkpoint(sbi, L_ADDR(sbi, del_cp_i->cp));
@@ -1353,7 +1445,11 @@ int delete_checkpoint(struct hmfs_sb_info *sbi, ver_t version)
 	unlock_gc(sbi);
 	return ret;
 }
-
+/**
+ *cc33 redo_delete_checkpoint：根据前一个检查点的状态信息，重做相应的删除检查点工作
+ *@sbi:指向当前版本下超级块信息的实例
+ *@return:如果成功，返回删除标识；如果失败，返回错误标识
+ */
 int redo_delete_checkpoint(struct hmfs_sb_info *sbi)
 {
 	block_t cp_addr;
