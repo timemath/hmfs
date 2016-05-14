@@ -113,7 +113,7 @@ static int do_read_inode(struct inode *inode)
 	fi->i_pino = le32_to_cpu(hi->i_pino);
 	return 0;
 }
-/*
+/**
  * 修改inode存储的i_size，并将其flag标记为FI_DIRTY_SIZE
  * @inode指向要修改的inode
  * @size表示要修改为的大小
@@ -131,7 +131,7 @@ void mark_size_dirty(struct inode *inode, loff_t size)
 	list_add_tail(&hi->list, &sbi->dirty_inodes_list);
 	spin_unlock(&sbi->dirty_inodes_lock);
 }
-/*
+/**
  * 申请一个node block，将仅仅是i_size和i_block改变的inode的改变信息同步
  * 并清除FI_DIRTY_SIZE状态
  */
@@ -158,7 +158,7 @@ int sync_hmfs_inode_size(struct inode *inode, bool force)
 	}
 	return 0;
 }
-/*
+/**
  * 申请一个node block，将脏的inode信息全部同步到NVM上
  * 并清除inode的脏状态
  */
@@ -203,7 +203,7 @@ int sync_hmfs_inode(struct inode *inode, bool force)
 }
 
 /* allocate an inode */
-/*
+/**
  * 读取inode编号对应的inode
  * @sb指向inode所在的超级块
  * @ino为要读取的编号
