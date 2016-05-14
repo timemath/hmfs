@@ -19,7 +19,9 @@
 #include "hmfs.h"
 #include "xattr.h"
 #include "acl.h"
-
+/**
+ * 返回count个acl_entry对应的字节数
+ */
 static inline size_t hmfs_acl_size(int count)
 {
 	if (count <= 4) {
@@ -29,7 +31,9 @@ static inline size_t hmfs_acl_size(int count)
 					(count - 4) * ACL_ENTRY_SIZE;
 	}
 }
-
+/**
+ * 返回size个字节对应的访问控制表entry数
+ */
 static inline int hmfs_acl_count(size_t size)
 {
 	ssize_t s;
@@ -46,7 +50,12 @@ static inline int hmfs_acl_count(size_t size)
 		return s / ACL_ENTRY_SIZE + 4;
 	}
 }
-
+/**
+ * 获取文件访问控制表的地址
+ * @inode为该文件inode
+ * 成功则返回访问控制表地址
+ * 否则返回NULL
+ */
 static void *get_acl_block(struct inode *inode)
 {
 	struct hmfs_sb_info *sbi = HMFS_I_SB(inode);
@@ -62,7 +71,12 @@ static void *get_acl_block(struct inode *inode)
 		return ADDR(sbi, acl_addr);
 	return NULL;
 }
-
+/**
+ * 读取访问控制表内容
+ * @base_addr为要读取的ACL的起始地址
+ * @size为要读取的字节数
+ * 返回值为指向存储了访问控制表内容的新建ACL表的指针
+ */
 static struct posix_acl *hmfs_read_acl(const char *base_addr, size_t size)
 {
 	int i, count;
@@ -117,7 +131,13 @@ fail:
 	posix_acl_release(acl);
 	return ERR_PTR(-EINVAL);
 }
-
+/**
+ * 获取文件访问控制表内容
+ * @inode为该文件inode
+ * @type定义获取类型为ACL_TYPE_ACCESS或是ACL_TYPE_DEFAULT
+ * 从而读取不同的内容
+ * 成功时返回指向存储获取到内容的ACL表的指针
+ */
 struct posix_acl *hmfs_get_acl(struct inode *inode, int type)
 {
 	struct hmfs_acl_header *acl_header = NULL;
@@ -160,7 +180,11 @@ struct posix_acl *hmfs_get_acl(struct inode *inode, int type)
 
 	return acl;
 }
-
+/**
+ * 初始化@base_addr指向的acl块
+ * 修改其h_magic值为HMFS_X_BLOCK_TAG_ACL
+ * 修改a_version值为HMFS_ACL_VERSION
+ */
 static void init_acl_block(void *base_addr) 
 {
 	struct hmfs_acl_header *acl_header = ACL_HEADER(base_addr);
@@ -168,7 +192,14 @@ static void init_acl_block(void *base_addr)
 	XATTR_HDR(base_addr)->h_magic = cpu_to_le16(HMFS_X_BLOCK_TAG_ACL);
 	acl_header->a_version = cpu_to_le32(HMFS_ACL_VERSION);
 }	
-
+/**
+ * 写文件访问控制表
+ * @inode为该文件的inode
+ * @acl指向的结构体存储了要写入文件ACL的值
+ * @size用于存储写入后的ACL大小
+ * @type定义ACL类型为ACL_TYPE_ACCESS还是ACL_TYPE_DEFAULT
+ * 成功则返回写入的访问控制表地址
+ */
 static void *hmfs_write_acl(struct inode *inode, const struct posix_acl *acl,
 				size_t *size, int type)
 {
@@ -249,7 +280,13 @@ write:
 fail:
 	return ERR_PTR(-EINVAL);
 }
-
+/**
+ * 设置文件访问控制表
+ * @inode为该文件的inode
+ * @acl指向的结构体存储了要写入文件ACL的值
+ * @type定义ACL类型为ACL_TYPE_ACCESS还是ACL_TYPE_DEFAULT
+ * 成功则返回0
+ */
 int hmfs_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 {
 	struct hmfs_inode_info *fi = HMFS_I(inode);
@@ -292,7 +329,12 @@ int hmfs_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	clear_inode_flag(fi, FI_ACL_MODE);
 	return error;
 }
-
+/**
+ * 复制访问控制表
+ * @acl为要复制的访问控制表
+ * @flags为复制时使用的gfp掩码
+ * 返回复制的访问控制表
+ */
 static struct posix_acl *hmfs_acl_clone(const struct posix_acl *acl,
 				gfp_t flags)
 {
@@ -308,7 +350,9 @@ static struct posix_acl *hmfs_acl_clone(const struct posix_acl *acl,
 	}
 	return clone;
 }
-
+/**
+ * 创建新节点时修改文件acl
+ */
 static int hmfs_acl_create_masq(struct posix_acl *acl, umode_t *mode_p)
 {
 	struct posix_acl_entry *pa, *pe;
@@ -360,7 +404,13 @@ static int hmfs_acl_create_masq(struct posix_acl *acl, umode_t *mode_p)
 	*mode_p = (*mode_p & ~S_IRWXUGO) | mode;
 	return not_equiv;
 }
-
+/**
+ * 创建一个访问控制表
+ * @dir为参照的已有文件inode
+ * @mode对应文件类型
+ * @*default_acl指向dir文件的acl
+ * @*acl指向新建的文件acl
+ */
 static int hmfs_acl_create(struct inode *dir, umode_t *mode,
 				struct posix_acl **default_acl, struct posix_acl **acl)
 {
@@ -407,7 +457,12 @@ no_mem:
 	posix_acl_release(p);
 	return -ENOMEM;
 }
-
+/**
+ * 初始化访问控制表
+ * @inode为需要初始化的文件inode
+ * @dir为参照的文件inode
+ * 成功则返回0
+ */
 int hmfs_init_acl(struct inode *inode, struct inode *dir)
 {
 	struct posix_acl *default_acl = NULL, *acl = NULL;
@@ -430,7 +485,13 @@ int hmfs_init_acl(struct inode *inode, struct inode *dir)
 
 	return error;
 }
-
+/**
+ * 列出文件POSIX_ACL_XATTR_ACCESS属性值
+ * @dentry用于索引超级块
+ * @list用于存储字符串
+ * @list_size为list存储的最大空间
+ * 返回属性值的字节长度
+ */
 size_t hmfs_acl_access_xattr_list(struct dentry *dentry, char *list, 
 				size_t list_size, const char *name, size_t name_len, 
 				int type)
@@ -444,7 +505,13 @@ size_t hmfs_acl_access_xattr_list(struct dentry *dentry, char *list,
 		memcpy(list, POSIX_ACL_XATTR_ACCESS, size);
 	return size;
 }
-
+/**
+ * 列出文件POSIX_ACL_XATTR_DEFAULT属性值
+ * @dentry用于索引超级块
+ * @list用于存储字符串
+ * @list_size为list存储的最大空间
+ * 返回属性值的字节长度
+ */
 size_t hmfs_acl_default_xattr_list(struct dentry *dentry, char *list,
 				size_t list_size, const char *name, size_t name_len,
 				int type)
@@ -458,7 +525,13 @@ size_t hmfs_acl_default_xattr_list(struct dentry *dentry, char *list,
 		memcpy(list, POSIX_ACL_XATTR_DEFAULT, size);
 	return size;
 }
-
+/**
+ * 获取文件acl扩展属性
+ * @dentry为该文件目录项
+ * @buffer为属性复制到的目标缓冲区地址
+ * @size为目标缓冲区最大大小
+ * 成功则返回acl属性字节长度
+ */
 int hmfs_acl_xattr_get(struct dentry *dentry, const char *name, void *buffer,
 				size_t size, int type)
 {
@@ -483,7 +556,13 @@ int hmfs_acl_xattr_get(struct dentry *dentry, const char *name, void *buffer,
 
 	return error;
 }
-
+/**
+ * 设置文件acl扩展属性
+ * @dentry为该文件目录项
+ * @value为要设置的属性值
+ * @size为要设置的属性值字节数
+ * 成功则返回0
+ */
 static int hmfs_acl_xattr_set(struct dentry *dentry, const char *name,
 				const void *value, size_t size, int flags, int type)
 {
