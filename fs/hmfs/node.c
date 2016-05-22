@@ -10,7 +10,9 @@ static struct kmem_cache *nat_entry_slab;
 
 const struct address_space_operations hmfs_nat_aops;
 /**
- * 为@inode增加@count个blocks(修改元数据，未实现分配）
+ * 为inode增加blocks(修改元数据，未实现分配）
+ * @param[in]  inode  文件inode
+ * @param[in]  count  增加的block个数
  */
 static inline bool inc_valid_node_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count, bool force)
@@ -39,7 +41,10 @@ static inline bool inc_valid_node_count(struct hmfs_sb_info *sbi,
 	return true;
 }
 /**
- *  减少@inode的@count个blocks(修改元数据）
+ *  减少inode的@blocks(修改元数据）
+ * @param[in]  inode  文件inode
+ * @param[in]  count  减少的block个数
+ * @param[in]  dec_valid 1 同时减少hmfs_cm_info的有效block
  */ 
 static inline void dec_valid_node_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count, bool dec_valid)
@@ -83,9 +88,10 @@ void set_new_dnode(struct dnode_of_data *dn, struct inode *inode,
  * The maximum depth is 4.
  */
  /**
-  * 寻找@block在inode中的索引路径，即从inode找到@block需经过的的NODE。
-  * @offset   指针相对于节点起始地址的便宜
-  * @noffset  指针在所有指针中的便宜
+  * 寻找block在inode中的索引路径，即从inode找到block需经过的的NODE。
+  * @param[in]  block   块偏移
+  * @param[out]  offset   指针相对于节点起始地址的便宜
+  * @param[out]  noffset  指针在所有指针中的便宜
   */ 
  
  
@@ -172,7 +178,7 @@ got:
 	return level;
 }
 /**
- * 返回@n为NODE_ID的NAT_ENTRYT在内存中的地址
+ * 返回n为NODE_ID的NAT_ENTRYT在内存中的地址
  */ 
 static struct nat_entry *__lookup_nat_cache(struct hmfs_nm_info *nm_i, nid_t n)
 {
@@ -238,7 +244,7 @@ static int init_node_manager(struct hmfs_sb_info *sbi)
 	return 0;
 }
 /**
- * 空闲node分配失败恢复 分
+ * 空闲node分配失败恢复 
  * @nid 分配失败的节点ID
  */ 
 void alloc_nid_failed(struct hmfs_sb_info *sbi, nid_t nid)
@@ -257,7 +263,7 @@ void alloc_nid_failed(struct hmfs_sb_info *sbi, nid_t nid)
 }
 /**
  * 在NAT树中加入nat_entry
- * @nid 加入nat_entry的节点ID
+ * @param[in]  nid 加入nat_entry的节点ID
  */ 
 static struct nat_entry *grab_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid)
 {
@@ -499,7 +505,8 @@ fail:
 	return err;
 }
 /**
- * 删除@inode中@from之后的block
+ * 删除inode中from之后的block
+ * @param[in]  from 删除起始偏移
  */
 int truncate_inode_blocks(struct inode *inode, pgoff_t from)
 {
@@ -579,7 +586,9 @@ fail:
 	return err > 0 ? 0 : err;
 }
 /**
- * 更新内存中@nid的nat_entry的块地址为@blk_addr 
+ * 更新内存中nid的nat_entry的块地址为blk_addr
+ * @param[in] nid  NODE ID
+ * @param[in] blk_addr  更新后的块地址 
  */ 
 void gc_update_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid,
 				block_t blk_addr)
@@ -595,7 +604,7 @@ void gc_update_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid,
 	unlock_write_nat(nm_i);
 }
 /**
- * 更新@nid的nat_entry,检查是否为脏页
+ * 更新nid的nat_entry,检查是否为脏页
  */ 
 void update_nat_entry(struct hmfs_nm_info *nm_i, nid_t nid, nid_t ino,
 		      block_t blk_addr, bool dirty)
