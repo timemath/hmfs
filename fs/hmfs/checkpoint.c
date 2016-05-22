@@ -15,6 +15,17 @@ static struct kmem_cache *cp_info_entry_slab;
  *@prev_ver:以前的版本号
  *@new_ver:新的版本号
  */
+/**
+ * modify_checkpoint_version:当发生修改时，修改NAT树种各类块的子节点的版本信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    block:块号
+ * @param[in]    prev_ver:以前的版本号
+ * @param[in]    prev_ver:以前的版本号
+ * @return       new_ver:新的版本号
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void modify_checkpoint_version(struct hmfs_sb_info *sbi, void *block,
 				ver_t prev_ver, ver_t new_ver)
 {
@@ -154,6 +165,13 @@ static void modify_checkpoint_version(struct hmfs_sb_info *sbi, void *block,
  *cc2 recycle_version_number:回收当前的版本号
  *@sbi:指向当前版本下超级块信息的实例
  */
+/**
+ * recycle_version_number:回收当前的版本号
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 void recycle_version_number(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_checkpoint *cur_cp, *last_cp;
@@ -197,6 +215,14 @@ void recycle_version_number(struct hmfs_sb_info *sbi)
 /**
  *cc3 next_checkpoint_ver:得到下一个版本号
  */
+/**
+ * next_checkpoint_ver:得到下一个版本号
+ * @param[in]    version：版本号
+ * @return       new_ver:下一个版本号
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static ver_t next_checkpoint_ver(ver_t version)
 {
 	return version + 1;
@@ -204,6 +230,13 @@ static ver_t next_checkpoint_ver(ver_t version)
 /**
  *cc4 init_orphan_manager:初始化管理孤立点的实例
  *@cm_i:初始化检查点管理器的实例
+ */
+/**
+ * init_orphan_manager:初始化管理孤立点的实例
+ * @param[in]    cm_i:初始化检查点管理器的实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static void init_orphan_manager(struct hmfs_cm_info *cm_i)
 {
@@ -216,6 +249,14 @@ static void init_orphan_manager(struct hmfs_cm_info *cm_i)
  *cc5 add_orphan_inode:增加孤立节点的inode到链表队尾
  *@sbi:指向当前版本下超级块信息的实例
  *@ino:节点的inode号
+ */
+/**
+ * add_orphan_inode:增加孤立节点的inode到链表队尾
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    ino:节点的inode号
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 void add_orphan_inode(struct hmfs_sb_info *sbi, nid_t ino)
 {
@@ -260,6 +301,14 @@ out:
  *@sbi:指向当前版本下超级块信息的实例
  *@ino:节点的inode号
  */
+/**
+ * remove_orphan_inode:删除不再需要的孤立节点的inode
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    ino:节点的inode号
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 void remove_orphan_inode(struct hmfs_sb_info *sbi, nid_t ino)
 {
 	struct list_head *this, *next, *head;
@@ -288,6 +337,14 @@ void remove_orphan_inode(struct hmfs_sb_info *sbi, nid_t ino)
  *@sbi:指向当前版本下超级块信息的实例
  *@return:，如果是,则返回错误信息
  */
+/**
+ * recycle_version_number:回收当前的版本号
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 int check_orphan_space(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_cm_info *cm_i = CM_I(sbi);
@@ -306,6 +363,15 @@ int check_orphan_space(struct hmfs_sb_info *sbi)
  *@hmfs_cp：指向整个超级块的全局检查点的指针实例
  *@cp：指向当前版本下检查点的信息实例
  */
+/**
+ * sync_checkpoint_info:用给定检查点的版本信息和NAT树的根节点信息更新当前检查点信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    hmfs_cp：指向整个超级块的全局检查点的指针实例
+ * @param[in]    cp：指向当前版本下检查点的信息实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void sync_checkpoint_info(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *hmfs_cp,
 				struct checkpoint_info *cp)
@@ -317,6 +383,14 @@ static void sync_checkpoint_info(struct hmfs_sb_info *sbi,
 /**
  *cc9 move_to_next_checkpoint：将新的检查点插入到CP树中
  *@sbi:指向当前版本下超级块信息的实例
+ */
+/**
+ * move_to_next_checkpoint(struct hmfs_sb_info *sbi,struct hmfs_checkpoint *prev_checkpoint)
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    prev_checkpoint:前一个检查点
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static void move_to_next_checkpoint(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *prev_checkpoint)
@@ -353,6 +427,15 @@ retry:
  *@sbi:指向当前版本下超级块信息的实例
  *@cp：指向当前版本下检查点的信息实例
  *@return:返回下一个检查点的实例
+ */
+/**
+ * checkpoint_info *get_next_checkpoint_info(struct hmfs_sb_info *sbi,struct checkpoint_info *cp_i)
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    cp_i:检查点信息
+ * @return       指向下一个检查点信息的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 struct checkpoint_info *get_next_checkpoint_info(struct hmfs_sb_info *sbi,
 				struct checkpoint_info *cp_i)
@@ -401,6 +484,15 @@ retry:
  *@sbi:指向当前版本下超级块信息的实例
  *@version:版本号
  *@no_fail:是否找到给定版本的检查点
+ */
+/**
+ * get_checkpoint_info:如果不能给定版本的检查点，即视为丢失，则返回版本号距离跟定版本号最近的检查点
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    no_fail：失败标志
+ * @return       指向下一个检查点信息的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 struct checkpoint_info *get_checkpoint_info(struct hmfs_sb_info *sbi,
 				ver_t version, bool no_fail)
@@ -480,6 +572,16 @@ retry:
  *@version:版本号
  *@return:返回给定版本所在的检查点
  */
+/**
+ * get_mnt_checkpoint:找到给出的版本号，并且返回其检查点所在的位置
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    cp:检查点实例
+ * @param[in]    version:版本号
+ * @return       指向下一个检查点信息的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static struct hmfs_checkpoint *get_mnt_checkpoint(struct hmfs_sb_info *sbi,
 				struct hmfs_checkpoint *cp,	ver_t version)
 {
@@ -502,6 +604,13 @@ static struct hmfs_checkpoint *get_mnt_checkpoint(struct hmfs_sb_info *sbi,
 /**
  *cc13 check_checkpoint_state:检查当前检查点的状态，并采取相应操作
  *@sbi:指向当前版本下超级块信息的实例
+ */
+/**
+ * check_checkpoint_state:检查当前检查点的状态，并采取相应操作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 void check_checkpoint_state(struct hmfs_sb_info *sbi)
 {
@@ -536,6 +645,14 @@ out:
 /**
  *cc14 init_checkpoint_manager:初始化检查点管理器的各项信息
  *@sbi:指向当前版本下超级块信息的实例
+ */
+/**
+ * init_checkpoint_manager:初始化检查点管理器的各项信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       初始化检查点管理器
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 int init_checkpoint_manager(struct hmfs_sb_info *sbi)
 {
@@ -621,6 +738,13 @@ out_cm_i:
  * cc15 destroy_checkpoint_info:销毁处理删除链表的检查点信息
  *cm_i:检查点管理器的实例
  */
+/**
+ * destroy_checkpoint_info:销毁处理删除链表的检查点信息
+ * @param[in]    cm_i:检查点管理器的实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void destroy_checkpoint_info(struct hmfs_cm_info *cm_i)
 {
 	struct checkpoint_info *cp_i = cm_i->last_cp_i, *entry;
@@ -646,6 +770,14 @@ static void destroy_checkpoint_info(struct hmfs_cm_info *cm_i)
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0
  */
+/**
+ * destroy_checkpoint_manager:销毁检查点管理器所占的空间并且释放其所占空间
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       成功返回0
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 int destroy_checkpoint_manager(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_cm_info *cm_i = sbi->cm_info;
@@ -660,6 +792,13 @@ int destroy_checkpoint_manager(struct hmfs_sb_info *sbi)
 /**
  *cc17 create_checkpoint_caches:创建检查点缓存实例
  *@return:成功返回0；出错返回超出内存
+ */
+/**
+ * create_checkpoint_caches:创建检查点缓存实例
+ * @return       返回错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 int create_checkpoint_caches(void)
 {
@@ -684,6 +823,12 @@ free_orphan:
 /**
  *cc18 destroy_checkpoint_caches:释放孤立entry集合和检查点信息entry集合所占空间
  */
+/**
+ * destroy_checkpoint_caches:释放孤立entry集合和检查点信息entry集合所占空间
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 void destroy_checkpoint_caches(void)
 {
 	kmem_cache_destroy(orphan_entry_slab);
@@ -693,6 +838,14 @@ void destroy_checkpoint_caches(void)
  *cc19 sync_dirty_inodes:同步处于链表中的脏的inode信息
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0，失败返回错误标识
+ */
+/**
+ * sync_dirty_inodes:同步处于链表中的脏的inode信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       成功返回0，失败返回错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static int sync_dirty_inodes(struct hmfs_sb_info *sbi)
 {
@@ -715,6 +868,14 @@ static int sync_dirty_inodes(struct hmfs_sb_info *sbi)
  *cc20 block_operations: 对脏的inode块进行处理
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0
+ */
+/**
+ * block_operations: 对脏的inode块进行处理
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       同步脏的inode是否成功的标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static int block_operations(struct hmfs_sb_info *sbi)
 {
@@ -739,6 +900,13 @@ retry:
 /**
  *cc21 unblock_operations:释放处于超级块环境中所有的mutex
  */
+/**
+ * unblock_operations:释放处于超级块环境中所有的mutex
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void unblock_operations(struct hmfs_sb_info *sbi)
 {
 	mutex_unlock_all(sbi);
@@ -755,6 +923,15 @@ static void unblock_operations(struct hmfs_sb_info *sbi)
 /**
  *cc22 flush_orphan_inodes:
  *@sbi:指向当前版本下超级块信息的实例
+ */
+/**
+ * flush_orphan_inodes:刷新孤立inode
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    orphan_addrs:孤立节点的位置
+ * @return       返回是否成功标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static int flush_orphan_inodes(struct hmfs_sb_info *sbi, block_t *orphan_addrs)
 {
@@ -812,6 +989,15 @@ out:
  *@orphan_addrs:所有孤立节点的集合
  *@cp_addr：检查点的地址
  */
+/**
+ * check_checkpoint_state:刷新回所有的孤立节点
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    orphan_addrs:所有孤立节点的集合
+ * @param[in]    cp_addr：检查点的地址
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void flush_orphan_inodes_finish(struct hmfs_sb_info *sbi, 
 				block_t *orphan_addrs, block_t cp_addr)
 {
@@ -836,6 +1022,14 @@ static void flush_orphan_inodes_finish(struct hmfs_sb_info *sbi,
  *@sbi:指向当前版本下超级块信息的实例
  *@ino:inode ID号
  */
+/**
+ * recover_orphan_inode:根据inode号获取inode，并且清零链表
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    ino:inode号
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void recover_orphan_inode(struct hmfs_sb_info *sbi, nid_t ino)
 {
 	struct inode *inode = hmfs_iget(sbi->sb, ino);
@@ -850,6 +1044,14 @@ static void recover_orphan_inode(struct hmfs_sb_info *sbi, nid_t ino)
  *cc25 recover_orphan_inodes:根据当前超级块地址相应删除对应的孤立节点
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0
+ */
+/**
+ * check_checkpoint_state:检查当前检查点的状态，并采取相应操作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       成功返回0
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 int recover_orphan_inodes(struct hmfs_sb_info *sbi)
 {
@@ -883,6 +1085,14 @@ int recover_orphan_inodes(struct hmfs_sb_info *sbi)
  *cc26 do_checkpoint: 进行相应地检查点备份工作
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0
+ */
+/**
+ * do_checkpoint: 进行相应地检查点备份工作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       成功返回0，失败错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static int do_checkpoint(struct hmfs_sb_info *sbi)
 {
@@ -1007,6 +1217,15 @@ static int do_checkpoint(struct hmfs_sb_info *sbi)
  *@sbi:指向当前版本下超级块信息的实例
  *@return:成功返回0
  */
+/**
+ * check_checkpoint_state:检查当前检查点的状态，并采取相应操作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    unlock:是否锁定标识
+ * @return       是否对块处理成功标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 int write_checkpoint(struct hmfs_sb_info *sbi, bool unlock)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
@@ -1038,6 +1257,15 @@ unlock:
  *@sbi:指向当前版本下超级块信息的实例
  *@prev_cp:前一个检查点
  *@return:成功返回0
+ */
+/**
+ * redo_checkpoint:根据前一个检查点的信息，重做上一次检查点的工作，以恢复系统
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    prev_cp:前一个检查点
+ * @return       成功返回0
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
 {
@@ -1111,6 +1339,15 @@ int redo_checkpoint(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *prev_cp)
  *@addr:块的地址
  *@summary:块的summary表信息
  */
+/**
+ * invalidate_block:根据块的summary表，清除有效位，更新SIT表的entry信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    addr:块的地址
+ * @param[in]    summary:块的summary表信息
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static void invalidate_block(struct hmfs_sb_info *sbi, block_t addr,
 				struct hmfs_summary *summary)
 {
@@ -1125,6 +1362,18 @@ static void invalidate_block(struct hmfs_sb_info *sbi, block_t addr,
  *@prev_ver:以前的版本
  *@next_ver:下一个版本
  *@return:成功返回0，失败返回1
+ */
+/**
+ * __delete_checkpoint:删除当前检查点信息，恢复上一个检查点的状态
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    cur_node：当前节点
+ * @param[in]    next_node：下一个节点
+ * @param[in]    prev_ver:以前的版本
+ * @param[in]    next_ver:下一个版本
+ * @return       成功返回0，失败返回1
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 static int __delete_checkpoint(struct hmfs_sb_info *sbi, void *cur_node,
 				void *next_node, ver_t prev_ver, ver_t next_ver)
@@ -1317,6 +1566,15 @@ delete:
  *@cur_addr:当前地址
  *@return:成功返回0，失败，返回错误标识
  */
+/**
+ * do_delete_checkpoint:做删除检查点的操作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    cur_addr:当前地址
+ * @return       成功返回0，失败，返回错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
 {
 	struct hmfs_checkpoint *next_cp, *prev_cp, *last_cp, *cur_cp;
@@ -1425,6 +1683,15 @@ static int do_delete_checkpoint(struct hmfs_sb_info *sbi, block_t cur_addr)
  *@version:版本号
  *@return:如果成功，返回删除标识；如果失败，返回错误标识
  */
+/**
+ * delete_checkpoint：删除检查点，并返回标识
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    version:版本号
+ * @return       如果成功，返回删除标识；如果失败，返回错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
+ */
 int delete_checkpoint(struct hmfs_sb_info *sbi, ver_t version)
 {
 	struct checkpoint_info *del_cp_i = NULL;
@@ -1449,6 +1716,14 @@ int delete_checkpoint(struct hmfs_sb_info *sbi, ver_t version)
  *cc33 redo_delete_checkpoint：根据前一个检查点的状态信息，重做相应的删除检查点工作
  *@sbi:指向当前版本下超级块信息的实例
  *@return:如果成功，返回删除标识；如果失败，返回错误标识
+ */
+/**
+ * redo_delete_checkpoint：根据前一个检查点的状态信息，重做相应的删除检查点工作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @return       如果成功，返回删除标识；如果失败，返回错误标识
+ * @ref          segment.h,hmfs.h，hmfs_fs.h
+ * @see
+ * @note
  */
 int redo_delete_checkpoint(struct hmfs_sb_info *sbi)
 {
