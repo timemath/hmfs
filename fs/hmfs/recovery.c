@@ -21,6 +21,16 @@
  *@src_off:偏移量
  *@src_sum:指向父节点的summary表的指针
  */
+/**
+ * recovery_data_block:依次恢复数据块的相关数据
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    src_segno:源段号
+ * @param[in]    src_off:偏移量
+ * @param[in]    src_sum:指向父节点的summary表的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
+ */
 static void recovery_data_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 				int src_off, struct hmfs_summary *src_sum)
 {
@@ -114,6 +124,16 @@ next:
  *@src_off:偏移量
  *@src_sum:指向父节点的summary表的指针
  */
+/**
+ * recovery_xdata_block:恢复额外数据块的数据信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    src_segno:源段号
+ * @param[in]    src_off:偏移量
+ * @param[in]    src_sum:指向父节点的summary表的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
+ */
 static void recovery_xdata_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 				int src_off, struct hmfs_summary *src_sum)
 {
@@ -178,6 +198,16 @@ next:
  *@src_off:偏移量
  *@src_sum:指向父节点的summary表的指针
  */
+/**
+ * recovery_node_block:恢复node块的数据信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    src_segno:源段号
+ * @param[in]    src_off:偏移量
+ * @param[in]    src_sum:指向父节点的summary表的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
+ */
 static void recovery_node_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 			    unsigned int src_off, struct hmfs_summary *src_sum)
 {
@@ -237,6 +267,16 @@ next:
  *@src_segno:源段号
  *@src_off:偏移量
  *@src_sum:指向父节点的summary表的指针
+ */
+/**
+ * recovery_nat_block:恢复NAT块的数据信息
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    src_segno:源段号
+ * @param[in]    src_off:偏移量
+ * @param[in]    src_sum:指向父节点的summary表的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
  */
 static void recovery_nat_block(struct hmfs_sb_info *sbi, seg_t src_segno, int src_off,
 			   struct hmfs_summary *src_sum)
@@ -320,6 +360,16 @@ next:
  *@src_off:偏移量
  *@src_sum:指向父节点的summary表的指针
  */
+/**
+ * recovery_orphan_block:恢复孤立块的地址
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    src_segno:源段号
+ * @param[in]    src_off:偏移量
+ * @param[in]    src_sum:指向父节点的summary表的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
+ */
 static void recovery_orphan_block(struct hmfs_sb_info *sbi, seg_t src_segno, 
 				int src_off, struct hmfs_summary *src_sum)
 {
@@ -352,6 +402,16 @@ static void recovery_orphan_block(struct hmfs_sb_info *sbi, seg_t src_segno,
  *@src_segno:源段号
  *@src_off:偏移量
  *@src_sum:指向父节点的summary表的指针
+ */
+/**
+ * recovery_checkpoint_block:根据检查点的信息恢复CP块
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    src_segno:源段号
+ * @param[in]    src_off:偏移量
+ * @param[in]    src_sum:指向父节点的summary表的指针
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
  */
 static void recovery_checkpoint_block(struct hmfs_sb_info *sbi, seg_t src_segno,
 				int src_off, struct hmfs_summary *src_sum)
@@ -403,6 +463,14 @@ static void recovery_checkpoint_block(struct hmfs_sb_info *sbi, seg_t src_segno,
  *cc7 recovery_gc_segment:根据段号summary表的类型做相应的恢复操作
  *@sbi:指向超级块信息的指针实例
  *@segno:要回收垃圾的段号
+ */
+/**
+ * recovery_gc_segment:根据段号summary表的类型做相应的恢复操作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    segno:要回收垃圾的段号
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
  */
 static void recovery_gc_segment(struct hmfs_sb_info *sbi, seg_t segno)
 {
@@ -472,6 +540,14 @@ static void recovery_gc_segment(struct hmfs_sb_info *sbi, seg_t segno)
  *cc8 recovery_gc_crash:根据检查点记录依次进行垃圾回收操作
  *@sbi:指向超级块信息的指针实例
  *@hmfs_cp:指向当前检查点的实例
+ */
+/**
+ * recovery_gc_crash:根据检查点记录依次进行垃圾回收操作
+ * @param[in]    sbi:指向当前版本下超级块信息的实例
+ * @param[in]    hmfs_cp:指向当前检查点的实例
+ * @ref          segment.h,hmfs.h，hmfs_fs.h,gc.h,node.h,xattr.h
+ * @see
+ * @note
  */
 void recovery_gc_crash(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *hmfs_cp)
 {
