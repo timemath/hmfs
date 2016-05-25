@@ -63,9 +63,15 @@ static const match_table_t tokens = {
 
 /*
  * ioremap & iounmap
+ * @param[in] phys_addr 映射起始物理地址
+ * @param[in] size 映射大小
+ * @return 映射后的虚拟地址的起始地址
  */
  /**
   * 将NVM物理地址@phys_addr 建立到内核虚拟空间大小为@size的映射，并返回映射的初始地址
+  * @param[in] phys_addr 映射起始物理地址
+  * @param[in] size 映射大小
+  * @return 映射后的虚拟地址的起始地址
   */
 static inline void *hmfs_ioremap(struct super_block *sb, phys_addr_t phys_addr,
 				ssize_t size)
@@ -75,7 +81,8 @@ static inline void *hmfs_ioremap(struct super_block *sb, phys_addr_t phys_addr,
 	return (void __force *)retval;
 }
  /**
-  * 解除虚拟地址@virt_addr的物理地址映射
+  * 解除虚拟地址与物理地址的映射
+  * @param[in]  virt_addr 映射的虚拟地址
   */
 static inline int hmfs_iounmap(void *virt_addr)
 {
@@ -90,7 +97,10 @@ static inline int hmfs_iounmap(void *virt_addr)
  * @remount: is remount
  */
   /**
-  * 解析并执行挂载时输入的相关数据@option
+  * 解析并执行挂载时输入的相关配置选项
+  * param[in] options 配置字符串
+  * param[in] remount 是否再次挂载
+  * @return   0，执行成功   其它，失败
   */
 static int hmfs_parse_options(char *options, struct hmfs_sb_info *sbi,
 				bool remount)
@@ -239,7 +249,9 @@ bad_opt:
 }
 
  /**
-  *以@sb为文件系统起始地址，格式化NVM介质，初始文件系统元数据
+  *格式化NVM介质，初始文件系统元数据
+  *@param[in] sb 超级块地址，即文件系统起始地址
+  *return  0，执行成功  其它，失败
   */
   
 static int hmfs_format(struct super_block *sb)
@@ -477,7 +489,9 @@ static int hmfs_format(struct super_block *sb)
 }
 
  /**
-  * 验证@start_addr地址处的SB是否有效，返回有效SB地址，同时处理无效SB
+  * 检验SB是否有效，返回有效SB地址，同时处理无效SB
+  * @param[in]  start_addr 超级块起始地址
+  * @return  有效的超级块地址
   */
 static struct hmfs_super_block *get_valid_super_block(void *start_addr)
 {
@@ -515,7 +529,8 @@ static struct hmfs_super_block *get_valid_super_block(void *start_addr)
  * sop
  */
   /**
-  * 初始化（分配）@foo指针所指的hmfs_inode的vfs inode部分
+  * 初始化vfs inode
+  * @param[in]  foo   hmfs_inode_info指针
   */
 static void init_once(void *foo)
 {
@@ -525,7 +540,8 @@ static void init_once(void *foo)
 }
 
  /**
-  * 从超级块@sb中分配一个新的hmfs_inode,返回其vfs inode指针
+  * 分配一个新的hmfs_inode
+  * @return vfs inode指针
   */
 static struct inode *hmfs_alloc_inode(struct super_block *sb)
 {
@@ -588,7 +604,7 @@ int __hmfs_write_inode(struct inode *inode, bool force)
 	return err;
 }
  /**
-  * 写回@inode
+  * 判断inode是否为脏， 脏则写回NVM
   */
 static int hmfs_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
@@ -618,7 +634,7 @@ static void hmfs_dirty_inode(struct inode *inode, int flags)
 }
 
  /**
-  * 从NVM删除@inode及相应文件(可能有误，有待进一步确认)
+  * 从NVM删除inode及相应文件
   */
 static void hmfs_evict_inode(struct inode *inode)
 {
@@ -662,7 +678,7 @@ out:
 	clear_inode(inode);
 }
  /**
-  * 为@sbi生成全零页
+  * 为sbi生成全零页
   */
 static int init_map_zero_page(struct hmfs_sb_info *sbi)
 {
@@ -787,7 +803,8 @@ static struct super_operations hmfs_sops = {
 	.unfreeze_fs = hmfs_unfreeze,
 };
 /**
- * 由@sb生成super_block_info
+ * 由超级块生成super_block_info
+ * @param[in] 挂载文件系统配置信息
  */
 static int hmfs_fill_super(struct super_block *sb, void *data, int slient)
 {
@@ -988,7 +1005,7 @@ struct file_system_type hmfs_fs_type = {
 #define AUTHOR_INFO "RADLAB SJTU"
 #define DEVICE_TYPE "Hybrid in-Memory File System"
 /**
- * 创建hmfs_inode的slab
+ * 创建hmfs_inode的slab缓存
  */
 static int __init init_inodecache(void)
 {
