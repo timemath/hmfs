@@ -22,8 +22,8 @@
 #define DELTA 0x9E3779B9
 /**
  * TEA加密算法
- * @buf  buf[0],buf[1] 明文
- * @in  秘钥
+ * @param[in] buf  buf[0],buf[1] 明文
+ * @param[in] in  秘钥
  */
 static void TEA_transform(unsigned int buf[4], unsigned int const in[])
 {
@@ -43,10 +43,10 @@ static void TEA_transform(unsigned int buf[4], unsigned int const in[])
 }
 /**
  *字符串转int
- *@msg 输入字符串
- *@size_t len 字符串长度
- *@buf 输出int数组
- *@num  输出缓冲区长度
+ *@param[in] msg 输入字符串
+ *@param[in] size_t len 字符串长度
+ *@param[in] buf 输出int数组
+ *@param[in] num  输出缓冲区长度
  */
 static void str2hashbuf(const unsigned char *msg, size_t len, 
 				unsigned int *buf, int num)
