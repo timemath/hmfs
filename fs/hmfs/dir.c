@@ -28,7 +28,7 @@ static unsigned long dir_blocks(struct inode *inode)
 
 /* calculate how many buckets in a level. */
 /**
- *计算level层有多少buckets（？？？）
+ *计算level层有多少buckets
  */
 static unsigned int dir_buckets(unsigned int level)
 {
@@ -40,7 +40,7 @@ static unsigned int dir_buckets(unsigned int level)
 
 /* calculate the number of blocks in a bucket. */
 /**
- * 计算level层bucket有多少块
+ * 计算level层bucket有多少数据块
  */
 static unsigned int bucket_blocks(unsigned int level)
 {
@@ -73,8 +73,8 @@ static unsigned char hmfs_type_by_mode[S_IFMT >> S_SHIFT] = {
 };
 /**
  *设置文件；类型
- *@de 文件的hmfs_dir_entry
- *@mode  文件类型flag
+ *@param[in] de 文件的hmfs_dir_entry
+ *@param[in] mode  文件类型flag
  */
 static void set_de_type(struct hmfs_dir_entry *de, umode_t mode)
 {
@@ -86,9 +86,9 @@ static void set_de_type(struct hmfs_dir_entry *de, umode_t mode)
  * alloc_new_data_block directly in case of dir might be an inline inode
  */
 /**
- * 返回目录数据结构
- * @dir  vfs inode
- * @old_bidx   数据块索引
+ * 返回文件的目录数据结构
+ * @param[in] dir  vfs inode
+ * @param[in] old_bidx   数据块索引
  */
 struct hmfs_dentry_block *get_dentry_block_for_write(struct inode *dir,
 				int old_bidx)
@@ -122,7 +122,7 @@ static unsigned long dir_block_index(unsigned int level, unsigned int idx)
 	return bidx;
 }
 /**
- * 查询namelen 和namehash 与de中结构数据是否相同
+ * 检测namelen 和namehash 与de中结构数据是否相同
  * @return 相同返回true，否则false
  */
 static bool early_match_name(size_t namelen, hmfs_hash_t namehash,
@@ -138,9 +138,9 @@ static bool early_match_name(size_t namelen, hmfs_hash_t namehash,
 }
 /**
  *从目录中寻找hmfs_dir_entry
- *@name 文件名哈希结构
- *@max_slots 目录中最大有效文件数
- *@d 内存目录结构指针
+ *@param[in] name 文件名哈希结构
+ *@param[in] max_slots 目录中最大有效文件数
+ *@param[in] d 内存目录结构指针
  */
 static struct hmfs_dir_entry *find_target_dentry(struct qstr *name, 
 				int *max_slots, struct hmfs_dentry_ptr *d)
@@ -191,9 +191,9 @@ found:
  */
 /**
  * 从目录结构块中寻找hmfs_dir_entry
- * @name  文件名哈希结构
- * @max_slots 目录块的最大有效文件数
- * @is_normal_inode false 内联数据inode
+ * @param[in] name  文件名哈希结构
+ * @param[in] max_slots 目录块的最大有效文件数
+ * @param[in] is_normal_inode 0 内联数据inode
  */
 static struct hmfs_dir_entry *find_in_block(struct hmfs_dentry_block *dentry_blk,
 				struct qstr *name, int *max_slots, int is_normal_inode)
@@ -222,7 +222,12 @@ static struct hmfs_dir_entry *find_in_block(struct hmfs_dentry_block *dentry_blk
  * @ofs_in_blk: return value, dentry offset in dentry data block(res_bidx)
  */
 /**
- *在level层找hmfs_dir_entry
+ *在level层找文件，放回其hmfs_dir_entry
+ *@param[in] dir  搜索所在目录
+ *@param[in] name  找的文件名
+ *@param[in] namehash  找的文件名的hash
+ *@param[out] res_bidx 搜寻结果数据块在inode内的偏移
+ *@param[out] ofs_in_blk  搜寻结果在数据块内的偏移
  */
 static struct hmfs_dir_entry *find_in_level(struct inode *dir, 
 				unsigned int level,	struct qstr *name, hmfs_hash_t namehash,
@@ -283,10 +288,10 @@ static struct hmfs_dir_entry *find_in_level(struct inode *dir,
  */
 /**
  * 从一个目录中找某文件名的hmfs_dir_entry
- * @dir 目录inode
- * @child 文件名
- * @bidx 返回块偏移量
- * @ofs_in_blk 返回块内偏移量
+ * @param[in] dir 目录inode
+ * @param[in] child 文件名
+ * @param[out] bidx 返回数据块偏移量
+ * @param[out] ofs_in_blk 返回数据块内偏移量
  */
 struct hmfs_dir_entry *hmfs_find_entry(struct inode *dir, struct qstr *child,
 				int *bidx, int *ofs_in_blk)
@@ -362,9 +367,9 @@ struct hmfs_dir_entry *hmfs_parent_dir(struct inode *dir)
  */
 /**
  * 设置目录文件中的一个hmfs_dir_entry
- * @dir  目录文件inode
- * @de   设置的hmfs_dir_entry地址
- * @inode  设置文件的inode
+ * @param[in] dir  目录文件inode
+ * @param[in] de   设置的hmfs_dir_entry地址
+ * @param[in] inode  设置文件的inode
  */
 void hmfs_set_link(struct inode *dir, struct hmfs_dir_entry *de,
 				struct inode *inode)
@@ -376,8 +381,8 @@ void hmfs_set_link(struct inode *dir, struct hmfs_dir_entry *de,
 }
 /**
  * 设置inode的文件名
- * @name  要设置的文件名
- * @hi  要设置的hmfs_inode
+ * @param[in] name  要设置的文件名
+ * @param[in] hi  要设置的hmfs_inode
  */
 static void init_dent_inode(const struct qstr *name, struct hmfs_inode *hi)
 {
@@ -387,6 +392,7 @@ static void init_dent_inode(const struct qstr *name, struct hmfs_inode *hi)
 }
 /**
  * 更新inode文件名
+ * @param[in] name 更新后的文件名
  */
 int update_dent_inode(struct inode *inode, const struct qstr *name)
 {
@@ -405,9 +411,9 @@ int update_dent_inode(struct inode *inode, const struct qstr *name)
 }
 /**
  * 设置初始化（空的）目录文件
- * @inode  目录文件vfs inode
- * @parent 上级目录 vfs inode
- * @hmfs_dentry_ptr  内存目录结构
+ * @param[in] inode  目录文件vfs inode
+ * @param[in] parent 上级目录 vfs inode
+ * @param[in] hmfs_dentry_ptr  内存目录结构
  */
 static void do_make_empty_dir(struct inode *inode, struct inode *parent,
 				struct hmfs_dentry_ptr *d)
@@ -452,9 +458,9 @@ static int make_empty_dir(struct inode *inode, struct inode *parent,
 }
 /**
  * 初始化目录文件元数据
- * @inode 目录文件 vfs inode
- * @dir  上层目录文件vfs inode
- * @name  目录文件名
+ * @param[in] inode 目录文件 vfs inode
+ * @param[in] dir  上层目录文件vfs inode
+ * @param[in] name  目录文件名
  */
 static struct hmfs_node *init_inode_metadata(struct inode *inode, struct inode *dir,
 				const struct qstr *name)
@@ -525,9 +531,9 @@ static void update_parent_metadata(struct inode *dir, struct inode *inode,
 /* Test whether dir has enough space for new dentry */
 /**
  *从位图中找连续slots个为0的段
- *@bitmap 位图
- *@slots 连续有效位数量
- *@max_slots 位图长度
+ *@param[in] bitmap 位图
+ *@param[in] slots 连续有效位数量
+ *@param[in] max_slots 位图长度
  */
 static int room_for_filename(const void *bitmap, int slots, int max_slots)
 {
@@ -553,11 +559,11 @@ next:
 /* Update dentry structure after adding a new dentry */
 /**
  * 给目录文件加一个hmfs_dir_entry
- * @ino 新加文件的node_ID
- * @mode 新加文件的模式
- * @name 新加文件的文件名
- * @name_hash 新加文件的哈希码
- * @bit_pos 新加文件的位图位置
+ * @param[in] ino 新加文件的node_ID
+ * @param[in] mode 新加文件的模式
+ * @param[in] name 新加文件的文件名
+ * @param[in] name_hash 新加文件名的哈希码
+ * @param[in] bit_pos 新加文件的位图位置
  */
 
 static void hmfs_update_dentry(nid_t ino, umode_t mode, struct hmfs_dentr y_ptr *d,
@@ -584,9 +590,9 @@ static void hmfs_update_dentry(nid_t ino, umode_t mode, struct hmfs_dentr y_ptr 
  */
 /**
  * 将文件加入目录，同时修改了inode和dir
- * @dir  目录inode
- * @inode 文件inode
- * @name 文件名
+ * @param[in] dir  目录inode
+ * @param[in] inode 文件inode
+ * @param[in] name 文件名
  */
 int __hmfs_add_link(struct inode *dir, const struct qstr *name,
 				struct inode *inode)
@@ -749,8 +755,8 @@ void hmfs_drop_nlink(struct inode *dir, struct inode *inode, struct page *page)
 /**
  * 从目录dir中删除文件inode
  * 减少dir和inode的链接数，
- * @dentry 删除文件hmfs_dir_dentry地址
- * @dentry_blk   dentry所在块地址
+ * @param[in] dentry 删除文件hmfs_dir_dentry地址
+ * @param[in] dentry_blk   dentry所在块地址
  */
 void hmfs_delete_entry(struct hmfs_dir_entry *dentry,
 				struct hmfs_dentry_block *dentry_blk, struct inode *dir,
@@ -805,7 +811,7 @@ void hmfs_delete_entry(struct hmfs_dir_entry *dentry,
 }
 /**
  * 检查目录是否为空
- * 空返回true 否则false
+ * @return true 目录为空     false  目录非空
  */
 bool hmfs_empty_dir(struct inode *dir)
 {
@@ -893,7 +899,7 @@ static bool hmfs_fill_dentries(struct hmfs_sb_info *sbi, struct dir_context *ctx
 }
 /**
  * 显示目录下的所有文件
- * @file 目录文件
+ * @param[in] file 目录文件
  */
 static int hmfs_readdir(struct file *file, struct dir_context *ctx)
 {
@@ -959,9 +965,7 @@ stop:
 	vfree(buf);
 	return err;
 }
-/**
- * 文件操作结构
- */ 
+
 const struct file_operations hmfs_dir_operations = {
 	.llseek = generic_file_llseek,
 	.read = generic_read_dir,
