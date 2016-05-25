@@ -136,8 +136,8 @@ static int stat_show(struct seq_file *s, void *v)
 }
 /**
  * 获取指定segment的状态
- * @sbi 文件系统超级块
- * @i  段号
+ * @param[in] sbi 文件系统超级块
+ * @param[in]i  段号
  */
 static char get_segment_state(struct hmfs_sb_info *sbi, seg_t i)
 {
@@ -213,10 +213,10 @@ static int info_open(struct inode *inode, struct file *file)
 }
 /**
  * 从内核区往用户区读取debug文件
- * @file 读取的文件
- * @buffer 用户区读取缓存
- * @count 读取的大小
- * @ppos buffer的开始偏移
+ * @param[in] file 读取的文件
+ * @param[out] buffer 用户区读取缓存
+ * @param[in] count 读取的大小
+ * @param[in] ppos buffer的开始偏移
  */
 static ssize_t info_read(struct file *file, char __user * buffer, size_t count,
 			 loff_t * ppos)
@@ -276,7 +276,7 @@ struct file_operations info_fops = {
 };
 /**
  *为 hmfs_stat_info申请缓存空间
- *@c  缓存的大小
+ *@param[in] c  缓存的大小
  */
 static int hmfs_build_info(struct hmfs_sb_info *sbi, size_t c)
 {
@@ -380,7 +380,7 @@ void hmfs_destroy_root_stat(void)
  */
 /**
  *打印消息至hmfs_stat_info缓存中
- *@mode  0 擦除原有数据写   1接着原有数据写
+ *@param[in] mode  0 擦除原有数据写   1接着原有数据写
  */
 int hmfs_print(struct hmfs_stat_info *si, int mode, const char *fmt, ...)
 {
@@ -403,7 +403,7 @@ int hmfs_print(struct hmfs_stat_info *si, int mode, const char *fmt, ...)
 //return how many bytes written to file buffer
 /**
  * 打印hmfs_checkpoint信息至hmfs_stat_info缓存中
- * @detail 0 只打印CP版本信息    1打印CP所有信息
+ * @param[in] detail 0 只打印CP版本信息    1打印CP所有信息
  */
 static int print_cp_one(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *cp,
 				int detail)
@@ -462,7 +462,7 @@ static int print_cp_one(struct hmfs_sb_info *sbi, struct hmfs_checkpoint *cp,
 }
 /**
  * 打印第n个CP信息
- * @detail 0 只打印CP版本信息    1打印CP所有信息
+ * @param[in] detail 0 只打印CP版本信息    1打印CP所有信息
  */
 static int print_cp_nth(struct hmfs_sb_info *sbi, int n, int detail)
 {
@@ -483,7 +483,7 @@ static int print_cp_nth(struct hmfs_sb_info *sbi, int n, int detail)
 }
 /**
  * 打印所有CP信息
- * @detail 0 只打印CP版本信息    1打印CP所有信息
+ * @param[in] detail 0 只打印CP版本信息    1打印CP所有信息
  */
 static int print_cp_all(struct hmfs_sb_info *sbi, int detail)
 {
@@ -546,7 +546,7 @@ static int hmfs_print_cp(struct hmfs_sb_info *sbi, int args,
  */
 /**
  * 打印块的SSA消息
- * @blk_addr块地址
+ * @param[in] blk_addr块地址
  */
 static size_t print_ssa_one(struct hmfs_sb_info *sbi, block_t blk_addr)
 {
@@ -573,8 +573,8 @@ static size_t print_ssa_one(struct hmfs_sb_info *sbi, block_t blk_addr)
 }
 /**
  * 打印范围数据块的SSA消息
- * @idx_from  起始数据块偏移
- * @idx_to 结束数据块偏移
+ * @param[in] idx_from  起始数据块偏移
+ * @param[in] idx_to 结束数据块偏移
  */
 static int print_ssa_range(struct hmfs_sb_info *sbi, block_t idx_from,
 			   block_t idx_to)
@@ -593,7 +593,7 @@ static int print_ssa_range(struct hmfs_sb_info *sbi, block_t idx_from,
 }
 /**
  * 打印segment中所有块的SSA
- * @segno  segment号
+ * @param[in] segno  segment号
  */
 static size_t print_ssa_per_seg(struct hmfs_sb_info *sbi, block_t segno)
 {
@@ -844,8 +844,8 @@ static int hmfs_consis(struct hmfs_sb_info *sbi)
 //return: < 0, error; else, args;
 /**
  *解析分解命令行指令
- *@len 指令长度
- *@argv 分解后的命令字符串
+ *@param[in] len 指令长度
+ *@param[out] argv 分解后的命令字符串
  */
 static int hmfs_parse_cmd(const char *cmd, size_t len,
 			  char argv[][MAX_ARG_LEN + 1])
@@ -891,6 +891,8 @@ static int hmfs_parse_cmd(const char *cmd, size_t len,
  */
 /**
  * 根据不同的cmd命令调用不同的函数
+ *@param[in]   cmd   字符串命令
+ *@param[in]   len   字符串长度
  */
 static int hmfs_dispatch_cmd(struct hmfs_sb_info *sbi, const char *cmd, 
 				int len)
