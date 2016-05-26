@@ -35,8 +35,10 @@ static struct kmem_cache *ro_file_address_cachep;
  */
 static struct kmem_cache *mmap_block_slab;
 /**
- * 当@level为0时(即数据地址直接存储在inode里时)返回0
- * 否则返回除存储第@i个块地址的块以外，之前所有块里存储的地址总数
+ * 返回块的起始地址
+ * @param[in] i 地址数
+ * @param[in] level 地址所处的层级，在inode中时为0
+ * @return 当@level为0时(即数据地址直接存储在inode里时)返回0 否则返回除存储第@i个块地址的块以外，之前所有块里存储的地址总数
  */
 static unsigned int start_block(unsigned int i, int level)
 {
@@ -45,9 +47,11 @@ static unsigned int start_block(unsigned int i, int level)
 	return 0;
 }
 /**
- * 减小有效块数
- * 将inode指向文件的占有块数减小count个
- * 同时使sbi对应超级块占有的有效块数减小count个
+ * 减小有效块数，将inode指向文件的占有块数减小count个，同时使sbi对应超级块占有的有效块数减小count个
+ * @param[in] sbi 对应文件超级块信息
+ * @param[in] inode 对应文件inode
+ * @param[in] count 减小的个数
+ * @return 成功则返回0
  */
 static int dec_valid_block_count(struct hmfs_sb_info *sbi,
 				struct inode *inode, int count)
@@ -65,8 +69,9 @@ static int dec_valid_block_count(struct hmfs_sb_info *sbi,
 /* Find the last index of data block which is meaningful*/
 /**
  * 寻找某文件在一定范围内的最后一个有效块
- * @dir指向对应文件
- * 查找范围为@end_blk之前的所有块
+ * @param[in] dir 指向对应文件
+ * @param[in] end_blk 查找范围为@end_blk之前的所有块
+ * @return 成功则返回0
  */
 unsigned int hmfs_dir_seek_data_reverse(struct inode *dir, unsigned int end_blk)
 {
@@ -122,10 +127,11 @@ unsigned int hmfs_dir_seek_data_reverse(struct inode *dir, unsigned int end_blk)
  */
 /**
  *寻找文件中的非孔区域或孔区域的位置
- *inode对应文件 end_blk为文件占用block数 start_pos为开始搜索的位置相对于文件开头的偏移量
- *type为SEEK_HOLE时搜索孔位置
- *type为SEEK_DATA时搜索非孔位置
- *返回值为对应位置起始处相对于文件起始处的块偏移数
+ *@param[in] inode 对应文件 
+ *@param[in] end_blk 文件占用block数
+ *@param[in] start_pos 开始搜索的位置相对于文件开头的偏移量
+ *@param[in] type 为SEEK_HOLE时搜索孔位置，为SEEK_DATA时搜索非孔位置
+ *@return 返回对应位置起始处相对于文件起始处的块偏移数
  */
 
 static unsigned int hmfs_file_seek_hole_data(struct inode *inode, 
@@ -186,8 +192,12 @@ found:
 	return start_blk + j < end_blk? start_blk + j : end_blk;
 }
 /**
- * 读取filp指向的文件,buf指向缓冲区，len为读取的长度,ppos指向读取位置的偏移量
- * 实现时先通过inode判断是否为inode内嵌文件，再分别通过不同过程进行读取
+ * 读取文件，实现时先通过inode判断是否为inode内嵌文件，再分别通过不同过程进行读取
+ * @param[in] filp 指向文件 
+ * @param[in] buf 指向缓冲区 
+ * @param[in] len 读取的长度
+ * @param[in] ppos 指向读取位置的偏移量
+ * @return 返回读取长度
  */
 static ssize_t __hmfs_xip_file_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
@@ -300,7 +310,8 @@ out:
 #ifdef CONFIG_HMFS_FAST_READ
 /**
  * 判断只读文件是否可快速读取
- * @addr_struct指向该只读文件
+ * @param[in] addr_struct 指向该只读文件
+ * @return 返回true表示可快速读取，否则不能
  */
 static inline bool is_fast_read_file(struct ro_file_address *addr_struct)
 {
@@ -309,8 +320,9 @@ static inline bool is_fast_read_file(struct ro_file_address *addr_struct)
 /**
  * 创建一存储只读文件地址的结构体
  * 该结构体存储于slab高速缓存中
- * 结构体中文件起始地址等于@addr
- * 结构体中计数等于@count
+ * @param[in] addr 结构体中文件起始地址
+ * @param[in] count 结构体中计数
+ * @return 返回结构体指针
  */
 static struct ro_file_address *new_ro_file_address(void *addr, unsigned int count)
 {
@@ -327,7 +339,7 @@ static struct ro_file_address *new_ro_file_address(void *addr, unsigned int coun
 }
 /**
  * 从slab高速缓存中释放只读文件地址结构体
- * @filp指向该文件
+ * @param[in] filp 指向该文件
  */
 static void free_ro_file_address(struct file *filp)
 {
@@ -336,9 +348,10 @@ static void free_ro_file_address(struct file *filp)
 }
 /**
  * 重映射文件到VMALLOC区域，用于只读文件加快读取
- * @inode指向文件
- * @pages指向VMALLOC区域中对应文件块地址
- * @count规定映射的文件数据块范围为count之前的块
+ * @param[in] inode 指向文件
+ * @param[in] pages 指向VMALLOC区域中对应文件块地址
+ * @param[in] count 规定映射的文件数据块范围为count之前的块
+ * @return 成功则返回0
  */
 static int remap_file_range(struct inode *inode, struct page **pages, int count)
 {
@@ -385,9 +398,12 @@ out:
  * Open file for hmfs, if it's a read-only file, then remap it into 
  * VMALLOC area to accelerate reading
  */
-/*
- * 打开@inode和@filp对应文件
+/**
+ * 打开文件
  * 若该文件为只读文件，则重映射到VMALLOC区域从而加快读取
+ * @param[in] inode 指向文件inode
+ * @param[in] file 指向文件file结构体
+ * @return 成功则返回0
  */
 int hmfs_file_open(struct inode *inode, struct file *filp)
 {
@@ -430,9 +446,12 @@ free_pages:
 	return 0;
 }
 /**
- * 释放@inode和@filp指向文件
+ * 释放文件
  * 若为映射到VMALLOC区域中的文件还需释放对应缓存
  * 若inode标记为脏还需同步到存储介质
+ * @param[in] inode 指向文件inode
+ * @param[in] file 指向文件file结构体
+ * @return 成功则返回0
  */
 static int hmfs_release_file(struct inode *inode, struct file *filp)
 {
@@ -464,8 +483,11 @@ static int hmfs_release_file(struct inode *inode, struct file *filp)
 }
 /**
  * 读取映射到VMALLOC区域的只读文件
- * @filp指向文件，@buf指向缓冲区地址
- * @len为读取长度，@ppos指向读取区域偏移量
+ * @param[in] filp 指向文件
+ * @param[in] buf 指向缓冲区地址
+ * @param[in] len为读取长度 
+ * @param[in] ppos指向读取区域偏移量
+ * @return 返回读取长度
  */
 static ssize_t hmfs_file_fast_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
@@ -494,9 +516,12 @@ static ssize_t hmfs_file_fast_read(struct file *filp, char __user *buf,
 }
 /**
  * 读取普通文件
- * @filp指向文件，@buf指向缓冲区地址
- * @len为读取长度，@ppos指向读取区域偏移量
  * 先判断是否为快速读取文件再分别调用相应函数进行读取
+ * @param[in] filp 指向文件
+ * @param[in] buf 指向缓冲区地址
+ * @param[in] len为读取长度 
+ * @param[in] ppos指向读取区域偏移量
+ * @return 返回读取长度
  */
 static ssize_t hmfs_xip_file_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
@@ -520,7 +545,7 @@ out:
 /**
  * 初始化快速读取文件的地址缓存
  * 使全局变量ro_file_address_cachep等于对应slab缓冲区地址
- * 成功分配则返回0否则返回-ENOMEM
+ * @return 成功分配则返回0否则返回-ENOMEM
  */
 int init_ro_file_address_cache(void)
 {
@@ -545,6 +570,11 @@ void destroy_ro_file_address_cache(void)
  * 读取filp指向文件的内容
  * 若文件长度为0则直接返回
  * 否则调用函数__hmfs_xip_file_read进行读取
+ * @param[in] filp 指向文件
+ * @param[in] buf 指向缓冲区地址
+ * @param[in] len为读取长度 
+ * @param[in] ppos指向读取区域偏移量
+ * @return 返回读取长度
  */
 static ssize_t hmfs_xip_file_read(struct file *filp, char __user *buf,
 				size_t len, loff_t *ppos)
@@ -572,6 +602,9 @@ int hmfs_file_open(struct inode *inode, struct file *filp)
  * 释放文件
  * 并根据文件inode的flag标志判断inode是否为脏
  * 若为脏，将文件内容同步到介质上
+ * @param[in] filp 指向文件file结构
+ * @param[in] inode 指向文件inode
+ * @return 成功则返回0
  */
 static int hmfs_release_file(struct inode *inode, struct file *filp)
 {
@@ -598,11 +631,15 @@ static int hmfs_release_file(struct inode *inode, struct file *filp)
  * @offset and @whence.
  */
 /**
- * 重新定位读/写文件的偏移量 file指向目标文件 offset为偏移量 whence指定偏移类型
+ * 重新定位读/写文件的偏移量 
  * whence为SEEK_END时将新位置指定成从文件结尾开始的的一个偏移距离
  * whence为SEEK_CUR时将新位置指定成从当前文件位置开始的一个偏移距离
  * whence为SEEK_DATA时将新位置指定成下一个大于等于偏移量的非孔文件区域的起始处
  * whence为SEEK_HOLE时将新位置指定成下一个大于等于偏移量的孔区域的起始处
+ * @param[in] file 指向目标文件 
+ * @param[in] offset 偏移量 
+ * @param[in] whence 指定偏移类型
+ * @return 成功则返回0
  */
 
 loff_t hmfs_file_llseek(struct file *file, loff_t offset, int whence)
@@ -668,9 +705,13 @@ out:
 }
 /**
  * 对filp指向文件进行写操作
- * buf指向用户写的缓冲区，count为写的长度
- * ppos指向写的位置相对文件的偏移量,pos为偏移量
  * 先进行各类访问、权限等的检查后调用__hmfs_xip_file_write进行写操作
+ * @param[in] filp 指向文件
+ * @param[in] buf 指向缓冲区地址
+ * @param[in] count 为写的长度 
+ * @param[in] ppos 指向写的位置相对文件的偏移量
+ * @param[in] pos 偏移量
+ * @return 返回写的长度
  */
 static ssize_t __hmfs_xip_file_write(struct file *filp, const char __user *buf,
 				size_t count, loff_t pos, loff_t *ppos)
@@ -771,9 +812,13 @@ out:
 }
 /**
  * 对filp指向文件进行写操作
- * buf指向用户写的缓冲区，len为写的长度
- * ppos指向写的位置相对文件的偏移量
  * 先进行各类访问、权限等的检查后调用__hmfs_xip_file_write进行写操作
+ * @param[in] filp 指向文件
+ * @param[in] buf 指向缓冲区地址
+ * @param[in] count 为写的长度 
+ * @param[in] ppos 指向写的位置相对文件的偏移量
+ * @param[in] pos 偏移量
+ * @return 返回写的长度
  */
 ssize_t hmfs_xip_file_write(struct file * filp, const char __user * buf,
 			    size_t len, loff_t * ppos)
@@ -841,6 +886,8 @@ out_up:
  * 截断dn指向的direct node中的数据
  * 检查dn->ofs_in_node之后一共count个地址指向的块是否为最新版本，若不是则删除无效块
  * 再将删除后的有效块数量更新到inode和超级块中，并将inode标记为脏
+ * @param[in] dn 指向direct node
+ * @param[in] count 地址计数
  */
 int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
 {
@@ -897,6 +944,7 @@ int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
  * 截断dn指向的direct node中的数据
  * 检查dn->node_block中的每个地址指向的块是否为最新版本，若不是则删除无效块
  * 再将删除后的有效块数量更新到inode和超级块中，并将inode标记为脏
+ * @param[in] dn 指向direct node
  */
 void truncate_data_blocks(struct dnode_of_data *dn)
 {
@@ -919,8 +967,8 @@ void truncate_data_blocks(struct dnode_of_data *dn)
 }
 /**
  * 将文件某个偏移量from所对应块在from之后的内容清零（只清除该块内容）
- * @inode对应文件
- * @from对应在文件中的偏移量
+ * @param[in] inode 对应文件inode
+ * @param[in] from 对应在文件中的偏移量
  */
 static void truncate_partial_data_page(struct inode *inode, block_t from)
 {
@@ -934,8 +982,9 @@ static void truncate_partial_data_page(struct inode *inode, block_t from)
 }
 /**
  * 清除普通文件某个偏移量之后的全部内容
- * @inode对应文件
- * @from对应偏移量
+ * @param[in] inode 对应文件
+ * @param[in] from 对应偏移量
+ * @return 成功则返回0
  */
 static int __truncate_blocks(struct inode *inode, block_t from)
 {
@@ -977,10 +1026,11 @@ free_next:
 }
 /**
  * 清除文件某个偏移量之后的全部内容
- * @inode对应文件
- * @from对应偏移量
  * 若为内嵌型文件直接在本函数处理
  * 否则调用__truncate_blocks处理普通文件
+ * @param[in] inode 对应文件
+ * @param[in] from 对应偏移量
+ * @return 成功则返回0
  */
 static int truncate_blocks(struct inode *inode, block_t from)
 {
@@ -1001,6 +1051,7 @@ static int truncate_blocks(struct inode *inode, block_t from)
 /**
  * 清除@inode对应文件在i_size之后的内容
  * 再修改i_mtime及i_ctime并将inode标记为脏
+ * @param[in] inode 对应文件
  */
 void hmfs_truncate(struct inode *inode)
 {
@@ -1015,9 +1066,13 @@ void hmfs_truncate(struct inode *inode)
 
 }
 /**
- *截断孔
- *在inode指向文件的第start块与第end块之间截断出孔区域
- *用于对可能占用多块的普通文件预分配空间
+ * 截断孔
+ * 在inode指向文件的第start块与第end块之间截断出孔区域
+ * 用于对可能占用多块的普通文件预分配空间
+ * @param[in] inode 对应文件
+ * @param[in] start 起始块
+ * @param[in] end 终止块
+ * @return 成功则返回0
  */
 int truncate_hole(struct inode *inode, pgoff_t start, pgoff_t end)
 {
@@ -1040,6 +1095,10 @@ int truncate_hole(struct inode *inode, pgoff_t start, pgoff_t end)
 /**
  * 填充零，即在inode指向文件第index个块偏移量为start处
  * 填充一长度为len的孔区域
+ * @param[in] inode 指向文件
+ * @param[in] index 块号
+ * @param[in] len 孔长度
+ * @return 成功则返回0
  */
 static void fill_zero(struct inode *inode, pgoff_t index, loff_t start,
 		      loff_t len)
@@ -1052,6 +1111,10 @@ static void fill_zero(struct inode *inode, pgoff_t index, loff_t start,
 /**
  * 打孔，对于inode指向文件在offset偏移量处增加一长度为len的孔
  * 用于fallocate函数预分配空间
+ * @param[in] inode 指向文件
+ * @param[in] offset 文件偏移量
+ * @param[in] start 块偏移量
+ * @param[in] len 孔长度
  */
 static int punch_hole(struct inode *inode, loff_t offset, loff_t len, int mode)
 {
@@ -1111,8 +1174,10 @@ out:
 }
 /**
  * 扩展文件大小为@offset+@len，并将@inode的flag标记为FI_DIRTY_SIZE
- * @inode指向文件
- * 成功则返回0
+ * @param[in] inode 指向文件
+ * @param[in] offset 文件偏移量
+ * @param[in] len 字节长度
+ * @return 成功则返回0
  */
 static int expand_inode_data(struct inode *inode, loff_t offset, loff_t len,
 			     int mode)
@@ -1171,10 +1236,12 @@ out:
 	return ret;
 }
 /**
- * 使@pfn指向
- * mmap的@inode文件第@index个页面
- * 在实际存储介质当中所在的块号
- * 若@vm_type为VM_WRITE则是创建第@index个页面，再使pfn指向其块号
+ * 使@pfn指向mmap的@inode文件第@index个页面在实际存储介质当中所在的块号
+ * @param[in] inode 指向文件
+ * @param[in] index 页面数
+ * @param[out] pfn inode指针
+ * @param[in] vm_type 若@vm_type为VM_WRITE则是创建第@index个页面，再使pfn指向其块号
+ * @return 成功则返回0
  */
 static int hmfs_get_mmap_block(struct inode *inode, pgoff_t index, 
 				unsigned long *pfn, int vm_type)
@@ -1211,6 +1278,7 @@ out:
 /**
  * 释放@vma指向的vm_area_struct结构体中
  * 从vm_start到vm_end之间的虚拟内存对应的内存块
+ * @param[in] vma 指向vm_area_struct结构体
  */
 static void hmfs_filemap_close(struct vm_area_struct *vma)
 {
@@ -1237,6 +1305,7 @@ static void hmfs_filemap_close(struct vm_area_struct *vma)
  * 新建一个mmap块
  * 并将@mm,@vaddr,@pgoff赋值到其所在的hmfs_mmap_block结构体当中
  * 再将此结构体添加到@sbi的mmap_block_list中
+ * @return 成功则返回0
  */
 int add_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 				unsigned long vaddr, unsigned long pgoff)
@@ -1260,9 +1329,10 @@ int add_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 }
 /**
  * 移除mmap块
- * @sbi存储对应超级块信息
- * @*mm表示要移除的vm区域
- * @pgoff表示要移除的块号
+ * @param[in] sbi 存储对应超级块信息
+ * @param[in] *mm 表示要移除的vm区域
+ * @param[in] pgoff 表示要移除的块号
+ * return 成功则返回0
  */
 int remove_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 				unsigned long pgoff)
@@ -1282,7 +1352,11 @@ int remove_mmap_block(struct hmfs_sb_info *sbi, struct mm_struct *mm,
 	unlock_mmap(sbi);
 	return 0;
 }
-
+/**
+ * 移动mmap块
+ * @param[in] sbi 对应超级块信息
+ * @return 成功则返回0
+ */
 int migrate_mmap_block(struct hmfs_sb_info *sbi)
 {
 	struct hmfs_mmap_block *entry;
@@ -1313,8 +1387,9 @@ free:
 }
 /**
  * 返回文件映射错误信息
- * @vma指向对应虚拟地址空间
- * @vmf存储出错信息
+ * @param[in] vma 指向对应虚拟地址空间
+ * @param[in] vmf 存储出错信息
+ * @return 返回错误信息
  */
 static int hmfs_filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
@@ -1359,6 +1434,9 @@ static const struct vm_operations_struct hmfs_file_vm_ops = {
  * 文件映射，将file指向文件映射到vma指向的地址空间
  * 修改文件访问信息
  * 设置vma的flag标志并将其操作指针指向hmfs_file_vm_ops
+ * @param[in] file 指向文件
+ * @param[in] vma 指向地址空间
+ * @return 成功则返回0
  */
 static int hmfs_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
@@ -1372,6 +1450,8 @@ static int hmfs_file_mmap(struct file *file, struct vm_area_struct *vma)
  * 若为只读文件不能同步直接返回
  * 否则根据inode状态是为FI_DIRTY_INODE还是FI_DIRTY_SIZE
  * 分别选择对应函数同步inode信息
+ * @param[in] file 指向文件
+ * @return 正常结束则返回0
  */
 int hmfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 {
@@ -1401,12 +1481,11 @@ int hmfs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 /* Pre-allocate space for file from offset to offset + len */
 /**
  * 预分配空间
- * @file指向对应文件
- * @offset为预分配空间的起始处
- * @len为预分配的空间长度
- * @mode&FALLOC_FL_PUNCH_HOLE不为零时，调用punch_hole函数在对应位置处打孔
- * 否则调用expand_inode_data函数直接增加文件大小
- * 成功时返回0
+ * @param[in] file 指向对应文件
+ * @param[in] offset 为预分配空间的起始处
+ * @param[in] len 为预分配的空间长度
+ * @param[in] mode mode&FALLOC_FL_PUNCH_HOLE不为零时，调用punch_hole函数在对应位置处打孔，否则调用expand_inode_data函数直接增加文件大小
+ * @return 成功时返回0
  */
 static long hmfs_fallocate(struct file *file, int mode, loff_t offset,
 			   loff_t len)
@@ -1443,9 +1522,8 @@ static long hmfs_fallocate(struct file *file, int mode, loff_t offset,
 #define HMFS_OTHER_FLMASK	(FS_NODUMP_FL | FS_NOATIME_FL)
 /**
  * 对于@flags进行掩码处理
- * @mode对应目录文件时直接返回falgs
- * @mode对应普通文件时返回flags & HMFS_REG_FLMASK
- * 其他情况时返回flags & HMFS_OTHER_FLMASK
+ * @param[in] mode 文件类型
+ * @return mode对应目录文件时直接返回falgs，对应普通文件时返回flags & HMFS_REG_FLMASK，其他情况时返回flags & HMFS_OTHER_FLMASK
  */
 static inline __u32 hmfs_mask_flags(umode_t mode, __u32 flags)
 {
@@ -1458,12 +1536,10 @@ static inline __u32 hmfs_mask_flags(umode_t mode, __u32 flags)
 }
 /**
  * 向设备发送或接收控制信息
- * @filp指向设备文件标识符
- * @arg指向用户空间目标地址
- * @cmd为HMFS_IOC_GETFLAGS时，将i_flags中用户可见位发送到用户空间目标地址
- * @cmd为HMFS_IOC_SETFLAGS时，将用户空间目标地址的值复制到flags中
- * @cmd为HMFS_IOC_GETVERSION时，将i_generation发送到用户空间目标地址
- * 若不符合以上任何一种情况则返回-ENOTTY
+ * @param[in] filp 指向设备文件标识符
+ * @param[in] arg 指向用户空间目标地址
+ * @param[in] cmd 为HMFS_IOC_GETFLAGS时，将i_flags中用户可见位发送到用户空间目标地址；为HMFS_IOC_SETFLAGS时，将用户空间目标地址的值复制到flags中；为HMFS_IOC_GETVERSION时，将i_generation发送到用户空间目标地址
+ * @return 若不符合以上任何一种情况则返回-ENOTTY
  */
 long hmfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -1526,9 +1602,9 @@ out:
 /**
  * hmfs_ioctl函数的兼容性包装函数
  * 向设备发送或接收控制信息
- * @filp指向设备文件标识符
- * @arg指向用户空间目标地址
  * 调整@cmd的值再调用hmfs_ioctl发送或接收控制信息
+ * @param[in] filp 指向设备文件标识符
+ * @param[in] arg 指向用户空间目标地址
  */
 long hmfs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -1579,7 +1655,7 @@ const struct inode_operations hmfs_file_inode_operations = {
 };
 /**
  * 创建slab高速缓存，使mmap_block_slab指向缓存
- * 成功返回0，失败返回-ENOMEM
+ * @return 成功返回0，失败返回-ENOMEM
  */
 int create_mmap_struct_cache(void)
 {
