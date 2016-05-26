@@ -28,11 +28,11 @@
 static const struct xattr_handler *hmfs_xattr_handler_map[];
 /**
  * 寻找存储扩展属性的结构体hmfs_xattr_entry
- * @base_addr表示遍历的起始地址
- * @index表示要寻找的结构体的e_name_index
- * @name_len表示要寻找的属性的名称长度
- * @name表示要寻找的属性的名称
- * 返回值为找到的该属性的hmfs_xattr_entry结构体
+ * @param[in] base_addr 表示遍历的起始地址
+ * @param[in] index 表示要寻找的结构体的e_name_index
+ * @param[in] name_len 表示要寻找的属性的名称长度
+ * @param[in] name 表示要寻找的属性的名称
+ * @return 返回值为找到的该属性的hmfs_xattr_entry结构体
  */
 static struct hmfs_xattr_entry *__find_xattr(void *base_addr, int index,
 				size_t name_len, const char *name)
@@ -52,8 +52,8 @@ static struct hmfs_xattr_entry *__find_xattr(void *base_addr, int index,
 }
 /**
  * 得到存储文件扩展属性的块在DRAM中的地址
- * @inode指向该文件
- * 正常时返回其地址，否则返回NULL
+ * @param[in] inode 指向该文件
+ * @return 正常时返回其地址，否则返回NULL
  */
 static void *get_xattr_block(struct inode *inode)
 {
@@ -72,12 +72,13 @@ static void *get_xattr_block(struct inode *inode)
 }
 /**
  * 将扩展属性句柄的prefix字符串，以及参数中的name字符串复制到list中
- * @dentry用于索引超级块
- * @list用于存储字符串
- * @list_size为list存储的最大空间
- * @name为拷贝到prefix之后的字符串
- * @len为将name拷贝到prefix之后的字符串的长度
- * @flag对应扩展属性句柄的种类
+ * @param[in] dentry 用于索引超级块
+ * @param[in] list 用于存储字符串
+ * @param[in] list_size 为list存储的最大空间
+ * @param[in] name 为拷贝到prefix之后的字符串
+ * @param[in] len 为将name拷贝到prefix之后的字符串的长度
+ * @param[in] flag 对应扩展属性句柄的种类
+ * @return 返回复制的字符串长度
  */
 static size_t hmfs_xattr_generic_list(struct dentry *dentry, char *list,
 				size_t list_size, const char *name, size_t len, int flags)
@@ -113,12 +114,12 @@ static size_t hmfs_xattr_generic_list(struct dentry *dentry, char *list,
 }
 /**
  * 得到扩展属性的属性值
- * @inode为要获取扩展属性值得文件inode
- * @index为要获取的扩展属性的e_name_index
- * @name为要获取的扩展属性的名称
- * @buffer为将属性值复制到的目标地址
- * @buffer_size为目标缓冲区最大长度
- * 返回值为属性值的字符长度或错误信息
+ * @param[in] inode 为要获取扩展属性值得文件inode
+ * @param[in] index 为要获取的扩展属性的e_name_index
+ * @param[in] name 为要获取的扩展属性的名称
+ * @param[in] buffer 为将属性值复制到的目标地址
+ * @param[in] buffer_size 为目标缓冲区最大长度
+ * @return 返回值为属性值的字符长度或错误信息
  */
 static int __hmfs_getxattr(struct inode *inode, int index, const char *name,
 				void *buffer, size_t buffer_size) 
@@ -164,12 +165,12 @@ out:
 /**
  * 获取文件扩展属性的属性值的包装函数
  * 调用__hmfs_getxattr函数进行读取
- * @inode为要获取扩展属性值得文件inode
- * @index为要获取的扩展属性的e_name_index
- * @name为要获取的扩展属性的名称
- * @buffer为将属性值复制到的目标地址
- * @buffer_size为目标缓冲区最大长度
- * 返回值为属性值的字符长度或错误信息
+ * @param[in] inode 为要获取扩展属性值得文件inode
+ * @param[in] index 为要获取的扩展属性的e_name_index
+ * @param[in] name 为要获取的扩展属性的名称
+ * @param[in] buffer 为将属性值复制到的目标地址
+ * @param[in] buffer_size 为目标缓冲区最大长度
+ * @return 返回值为属性值的字符长度或错误信息
  */
 int hmfs_getxattr(struct inode *inode, int index, const char *name,
 				void *buffer, size_t buffer_size) 
@@ -183,13 +184,13 @@ int hmfs_getxattr(struct inode *inode, int index, const char *name,
 }
 /**
  * 获取文件扩展属性
- * @dentry为要获取扩展属性值得文件目录项
- * @flags为要获取的扩展属性的e_name_index
- * @name为要获取的扩展属性的名称
- * @buffer为将属性值复制到的目标地址
- * @size为目标缓冲区最大长度
  * 调用函数hmfs_getxattr进行读取
- * 返回值为属性值的字符长度或错误信息
+ * @param[in] dentry 为要获取扩展属性值得文件目录项
+ * @param[in] flags 为要获取的扩展属性的e_name_index
+ * @param[in] name 为要获取的扩展属性的名称
+ * @param[in] buffer 为将属性值复制到的目标地址
+ * @param[in] size 为目标缓冲区最大长度
+ * @return 返回值为属性值的字符长度或错误信息
  */
 static int hmfs_xattr_generic_get(struct dentry *dentry, const char *name,
 				void *buffer, size_t size, int flags)
@@ -224,14 +225,14 @@ static void init_xattr_block(void *base_addr)
 }
 /**
  * 设置文件扩展属性值
- * @inode为要设置的文件inode
- * @index为要设置的扩展属性的e_name_index
- * @name为要设置的属性名
- * @value为要设置为的属性值
- * @size为该属性值的字符长度
- * @flags为XATTR_CREATE时为创建新属性
- * @flags为XATTR_REPLACE时为替代已有属性
- * 返回值为错误信息
+ * @param[in] inode 为要设置的文件inode
+ * @param[in] index 为要设置的扩展属性的e_name_index
+ * @param[in] name 为要设置的属性名
+ * @param[in] value 为要设置为的属性值
+ * @param[in] size 为该属性值的字符长度
+ * @param[in] flags 为XATTR_CREATE时为创建新属性
+ * @param[in] flags 为XATTR_REPLACE时为替代已有属性
+ * @return 返回值为错误信息
  */
 static int __hmfs_setxattr(struct inode *inode, int index,
 				const char *name, const void *value, size_t size,
@@ -345,14 +346,13 @@ out:
 /**
  * 设置文件扩展属性值的包装函数
  * 调用__hmfs_setxattr设置属性
- * @inode为要设置的文件inode
- * @index为要设置的扩展属性的e_name_index
- * @name为要设置的属性名
- * @value为要设置为的属性值
- * @size为该属性值的字符长度
- * @flags为XATTR_CREATE时为创建新属性
- * @flags为XATTR_REPLACE时为替代已有属性
- * 返回值为错误信息
+ * @param[in] inode 为要设置的文件inode
+ * @param[in] index 为要设置的扩展属性的e_name_index
+ * @param[in] name 为要设置的属性名
+ * @param[in] value 为要设置为的属性值
+ * @param[in] size 为该属性值的字符长度
+ * @param[in] flags 为XATTR_CREATE时为创建新属性，为XATTR_REPLACE时为替代已有属性
+ * @return 返回值为错误信息
  */
 static int hmfs_setxattr(struct inode *inode, int index, const char *name,
 				const void *value, size_t size, int flags)
@@ -371,14 +371,13 @@ static int hmfs_setxattr(struct inode *inode, int index, const char *name,
 /**
  * 设置文件扩展属性值的包装函数
  * 调用函数hmfs_setxattr设置属性
- * @dentry为要设置的文件目录项
- * @handler_flags为要设置的扩展属性的e_name_index
- * @name为要设置的属性名
- * @value为要设置为的属性值
- * @size为该属性值的字符长度
- * @flags为XATTR_CREATE时为创建新属性
- * @flags为XATTR_REPLACE时为替代已有属性
- * 返回值为错误信息
+ * @param[in] dentry 为要设置的文件目录项
+ * @param[in] handler_flags 为要设置的扩展属性的e_name_index
+ * @param[in] name 为要设置的属性名
+ * @param[in] value 为要设置为的属性值
+ * @param[in] size 为该属性值的字符长度
+ * @param[in] flags 为XATTR_CREATE时为创建新属性，为XATTR_REPLACE时为替代已有属性
+ * @return 返回值为错误信息
  */
 static int hmfs_xattr_generic_set(struct dentry *dentry, const char *name,
 				const void *value, size_t size, int flags, int handler_flags)
@@ -406,10 +405,10 @@ static int hmfs_xattr_generic_set(struct dentry *dentry, const char *name,
 }
 /**
  * 将list字符串值设置为系统建议值
- * @list为字符串起始地址
- * @list_size为list存储的最大长度
+ * @param[in] list 为字符串起始地址
+ * @param[in] list_size 为list存储的最大长度
  * 其他参数无意义
- * 返回设置后的list字符串长度
+ * @return 返回设置后的list字符串长度
  */
 static size_t hmfs_xattr_advise_list(struct dentry *dentry, char *list,
 				size_t list_size, const char *name, size_t len, int flags)
@@ -423,10 +422,10 @@ static size_t hmfs_xattr_advise_list(struct dentry *dentry, char *list,
 }
 /**
  * 获取文件扩展属性建议值
- * @dentry为该文件目录项
- * @name为扩展属性名
- * @buffer被设置为指向文件i_advise值的地址
- * 其他参数无意义
+ * @param[in] dentry 为该文件目录项
+ * @param[in] name 为扩展属性名
+ * @param[out] buffer 被设置为指向文件i_advise值的地址
+ * @return char型数据长度
  */
 static int hmfs_xattr_advise_get(struct dentry *dentry, const char *name,
 				void *buffer, size_t size, int flags)
@@ -444,11 +443,11 @@ static int hmfs_xattr_advise_get(struct dentry *dentry, const char *name,
 }
 /**
  * 设置文件扩展属性建议值
- * @dentry为该文件目录项
- * @name为扩展属性名
- * @value指向要设置的属性建议值
+ * @param[in] dentry 为该文件目录项
+ * @param[in] name 为扩展属性名
+ * @param[in] value 指向要设置的属性建议值
  * 其他参数无意义
- * 成功时返回0，否则返回错误信息
+ * @return 成功时返回0，否则返回错误信息
  */
 static int hmfs_xattr_advise_set(struct dentry *dentry, const char *name,
 				const void *value, size_t size, int flags, int handler_flag)
@@ -469,11 +468,11 @@ static int hmfs_xattr_advise_set(struct dentry *dentry, const char *name,
 	return 0;
 }
 /**
- * 初始化文件扩展属性
- * @inode为该文件inode
- * @xattr_array为要设置的扩展属性初始值的结构体数组初始地址
- * @page无意义
- * 成功时返回0，否则返回错误信息
+ * 初始化文件扩展属性 
+ * @param[in] inode 为该文件inode
+ * @param[in] xattr_array 为要设置的扩展属性初始值的结构体数组初始地址
+ * @param[in] page 无意义
+ * @return 成功时返回0，否则返回错误信息
  */
 static int hmfs_initxattrs(struct inode *inode, const struct xattr *xattr_array,
 				void *page)
@@ -553,7 +552,7 @@ const struct xattr_handler *hmfs_xattr_handlers[] = {
 	NULL,
 };
 /**
- * 返回第index个扩展属性句柄
+ * @return 返回第index个扩展属性句柄
  */
 static inline const struct xattr_handler *hmfs_xattr_handler(int index)
 {
@@ -564,11 +563,10 @@ static inline const struct xattr_handler *hmfs_xattr_handler(int index)
 }
 /**
  *将文件的扩展属性名称复制到列表中
- *@dentry指向文件目录项
- *@buffer指向列表所在缓冲区指针
- *@buffer_size为缓冲区大小
- *返回值为正时表示所使用的缓冲区空间大小
- *返回值为负时表示缓冲区空间不够存储该列表
+ *@param[in] dentry 指向文件目录项
+ *@param[in] buffer 指向列表所在缓冲区指针
+ *@param[in] buffer_size 为缓冲区大小
+ *@return 返回值为正时表示所使用的缓冲区空间大小，返回值为负时表示缓冲区空间不够存储该列表
  */
 ssize_t hmfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 {

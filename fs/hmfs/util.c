@@ -11,8 +11,7 @@ pte_t * (*hmfs_get_locked_pte) (struct mm_struct *, unsigned long,
  */
 /**
  * 将函数hmfs_get_locked_pte地址值设为内核函数__get_locked_pte的地址
- * 成功则返回0
- * 否则返回并打印错误信息
+ * @return 成功则返回0，否则返回并打印错误信息
  */
 int init_util_function(void)
 {

@@ -8,7 +8,7 @@ struct backing_dev_info hmfs_backing_dev_info __read_mostly = {
 /**
  * 根据文件inode对应hmfs_inode_info结构体中的i_flags值
  * 来设置inode结构体中的i_flags值
- * @inode指向要修改的文件inode
+ * @param[in] inode 指向要修改的文件inode
  */
 void hmfs_set_inode_flags(struct inode *inode)
 {
@@ -31,7 +31,8 @@ void hmfs_set_inode_flags(struct inode *inode)
 /**
  * 将内联文件的inode转化为普通文件inode
  * 并将原先的内嵌数据复制到新分配的数据块
- * @inode指向要转化的文件inode
+ * @param[in] inode 指向要转化的文件inode
+ * @return 成功则返回0
  */
 int hmfs_convert_inline_inode(struct inode *inode)
 {
@@ -74,7 +75,8 @@ int hmfs_convert_inline_inode(struct inode *inode)
 }
 /**
  * 将inode属性由NVM读取到DRAM中
- * @inode指向要读取的inode结构体
+ * @param[in] inode指向要读取的inode结构体
+ * @return 成功则返回0
  */
 static int do_read_inode(struct inode *inode)
 {
@@ -115,8 +117,8 @@ static int do_read_inode(struct inode *inode)
 }
 /**
  * 修改inode存储的i_size，并将其flag标记为FI_DIRTY_SIZE
- * @inode指向要修改的inode
- * @size表示要修改为的大小
+ * @param[in] inode 指向要修改的inode
+ * @param[in] size 表示要修改为的大小
  */
 void mark_size_dirty(struct inode *inode, loff_t size)
 {
@@ -134,6 +136,8 @@ void mark_size_dirty(struct inode *inode, loff_t size)
 /**
  * 申请一个node block，将仅仅是i_size和i_block改变的inode的改变信息同步
  * 并清除FI_DIRTY_SIZE状态
+ * @param[in] inode 指向要修改的inode
+ * @return 成功则返回0
  */
 int sync_hmfs_inode_size(struct inode *inode, bool force)
 {
@@ -161,6 +165,8 @@ int sync_hmfs_inode_size(struct inode *inode, bool force)
 /**
  * 申请一个node block，将脏的inode信息全部同步到NVM上
  * 并清除inode的脏状态
+ * @param[in] inode 指向要同步的inode
+ * @return 成功则返回0
  */
 int sync_hmfs_inode(struct inode *inode, bool force)
 {
@@ -205,8 +211,9 @@ int sync_hmfs_inode(struct inode *inode, bool force)
 /* allocate an inode */
 /**
  * 读取inode编号对应的inode
- * @sb指向inode所在的超级块
- * @ino为要读取的编号
+ * @param[in] sb 指向inode所在的超级块
+ * @param[in] ino 为要读取的编号
+ * @return 成功则返回0
  */
 struct inode *hmfs_iget(struct super_block *sb, unsigned long ino)
 {
