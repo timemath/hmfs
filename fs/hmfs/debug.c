@@ -470,6 +470,7 @@ static int print_cp_all(struct hmfs_sb_info *sbi, int detail)
      cp c    [<d>]  -- dump current checkpoint info.
      cp <n>  [<d>]  -- dump the n-th checkpoint info on NVM, 0 is the last one.
      cp a    [<d>]  -- dump whole checkpoint list on NVM.
+     cp t    [<d>]  -- take a snapshot, dump the result
      cp             -- print this usage.
      set option 'd' 0 will not give the detail info, default is 1
  */
@@ -489,6 +490,12 @@ static int hmfs_print_cp(struct hmfs_sb_info *sbi, int args,
 	} else if ('a' == opt[0]) {
 		hmfs_print(si, 1, "======Total checkpoints info======\n");
 		len = print_cp_all(sbi, detail);
+	} else if ('t' == opt[0]) {
+		if(hmfs_sync_fs(sbi->sb, 1)) {
+			hmfs_print(si, 1, "Operation failed!\n");
+		} else {
+			hmfs_print(si, 1, "A new checkpoint is added!\n");
+		}
 	} else {
 		unsigned long long n = simple_strtoull(opt, NULL, 0);
 		hmfs_print(si, 1, "======%luth checkpoint info======\n", n);
